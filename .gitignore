@@ -1,0 +1,19 @@
+# secretos
+.env
+
+# datos (pueden contener datos de contacto de funcionarios; ver docs/plan.md)
+data/samples/*
+!data/samples/.gitkeep
+data/raw/
+*.zip
+
+# python
+__pycache__/
+.venv/
+.pytest_cache/
+.ruff_cache/
+
+# dbt
+dbt/target/
+dbt/logs/
+dbt/dbt_packages/
