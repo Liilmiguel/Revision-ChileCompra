@@ -56,10 +56,10 @@ def profile_bulk() -> list[str]:
         with zipfile.ZipFile(zf) as z:
             for name in z.namelist():
                 with z.open(name) as raw:
-                    text = io.TextIOWrapper(raw, encoding="latin-1", newline="")
+                    text = io.TextIOWrapper(raw, encoding="cp1252", newline="")
                     sample = text.read(20000)
                     delim = ";" if sample.count(";") > sample.count(",") else ","
-                    text = io.TextIOWrapper(z.open(name), encoding="latin-1", newline="")
+                    text = io.TextIOWrapper(z.open(name), encoding="cp1252", newline="")
                     reader = csv.DictReader(text, delimiter=delim)
                     n, empty = 0, Counter()
                     codes = set()

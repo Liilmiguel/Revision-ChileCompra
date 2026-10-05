@@ -1,0 +1,48 @@
+# Ingesta diaria contra una PostgreSQL externa. Requiere los secrets del repo
+# DATABASE_URL y MERCADO_PUBLICO_TICKET; sin ellos el job no corre.
+name: ingest
+
+on:
+  schedule:
+    - cron: "17 9 * * *"  # 06:17 en Chile (UTC-3)
+  workflow_dispatch:
+    inputs:
+      from_month:
+        description: "Mes inicial AAAA-M para la descarga masiva (vacío = hace 2 meses)"
+        required: false
+
+concurrency: ingest
+
+jobs:
+  ingest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    env:
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      MERCADO_PUBLICO_TICKET: ${{ secrets.MERCADO_PUBLICO_TICKET }}
+    steps:
+      - name: Verificar secrets
+        id: check
+        run: |
+          if [ -z "$DATABASE_URL" ] || [ -z "$MERCADO_PUBLICO_TICKET" ]; then
+            echo "Faltan secrets DATABASE_URL o MERCADO_PUBLICO_TICKET; no se ingesta." >> "$GITHUB_STEP_SUMMARY"
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          fi
+      - if: steps.check.outputs.ready == 'true'
+        uses: actions/checkout@v4
+      - if: steps.check.outputs.ready == 'true'
+        uses: astral-sh/setup-uv@v6
+      - if: steps.check.outputs.ready == 'true'
+        run: uv sync --locked --no-dev
+      - name: Descarga masiva (meses recientes; salta los que no cambiaron)
+        if: steps.check.outputs.ready == 'true'
+        env:
+          FROM_MONTH: ${{ inputs.from_month }}
+        run: uv run observatorio backfill --from "${FROM_MONTH:-$(date -u -d '-2 month' +%Y-%-m)}"
+      - name: Incremental API (ayer)
+        if: steps.check.outputs.ready == 'true'
+        run: uv run observatorio incremental
+      - if: steps.check.outputs.ready == 'true'
+        run: uv run observatorio status >> "$GITHUB_STEP_SUMMARY"
