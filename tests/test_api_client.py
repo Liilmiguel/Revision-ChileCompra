@@ -1,4 +1,5 @@
 import json
+import logging
 from datetime import date
 from pathlib import Path
 
@@ -65,3 +66,10 @@ def test_listing_usa_formato_ddmmaaaa():
 def test_detalle_inexistente_devuelve_none():
     with client(lambda r: httpx.Response(200, json={"Cantidad": 0, "Listado": []})) as c:
         assert c.detail("no-existe") is None
+
+
+def test_ticket_no_aparece_en_logs(caplog):
+    caplog.set_level(logging.DEBUG)
+    with client(lambda r: httpx.Response(200, json={"Cantidad": 0, "Listado": []})) as c:
+        c.listing(date(2026, 8, 14))
+    assert TICKET not in caplog.text

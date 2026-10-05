@@ -19,6 +19,9 @@ API_BASE = "https://api.mercadopublico.cl/servicios/v1/publico/"
 
 log = logging.getLogger(__name__)
 
+# httpx registra en INFO la URL completa de cada petición, y la URL lleva el ticket.
+logging.getLogger("httpx").setLevel(logging.WARNING)
+
 
 class ApiError(RuntimeError):
     """Error informado por la API (ticket inválido, cuota agotada, etc.)."""
