@@ -32,7 +32,7 @@ class MercadoPublicoClient:
         self,
         ticket: str,
         *,
-        min_interval: float = 1.5,
+        min_interval: float = 2.5,
         max_retries: int = 4,
         transport: httpx.BaseTransport | None = None,
         sleep=time.sleep,
@@ -71,7 +71,8 @@ class MercadoPublicoClient:
                         return body
                     # Error de negocio: no se reintenta salvo que sea transitorio.
                     msg = f"API Codigo {body.get('Codigo')}: {body.get('Mensaje')} (HTTP {resp.status_code})"
-                    if resp.status_code == 429:
+                    # 429 / Codigo 10500: "peticiones simultáneas"; se espera y se reintenta.
+                    if resp.status_code == 429 or body.get("Codigo") == 10500:
                         last_error = msg
                     else:
                         raise ApiError(msg)

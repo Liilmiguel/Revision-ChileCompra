@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 from collections.abc import Iterable, Iterator
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 
 import psycopg
 from psycopg.types.json import Jsonb
@@ -94,6 +94,17 @@ def replace_bulk_month(conn: psycopg.Connection, month: str, rows: Iterable[dict
             for code, head in heads.items():
                 copy.write_row((month, code, json.dumps(head, ensure_ascii=False), extracted_at))
     return n
+
+
+def fetched_after(conn: psycopg.Connection, codes: list[str], day: date) -> set[str]:
+    """Códigos cuyo detalle se descargó después de `day` (hora de Chile)."""
+    rows = conn.execute(
+        """select codigo_externo from raw.api_licitacion
+           where codigo_externo = any(%s) and (extracted_at at time zone 'America/Santiago')::date > %s""",
+        (codes, day),
+    ).fetchall()
+    conn.commit()
+    return {r[0] for r in rows}
 
 
 def upsert_api_details(conn: psycopg.Connection, details: Iterable[dict]) -> int:

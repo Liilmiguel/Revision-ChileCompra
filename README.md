@@ -8,13 +8,14 @@ Pipeline de licitaciones de Mercado Público hacia PostgreSQL.
 ## Uso local
 
 Requisitos: [uv](https://docs.astral.sh/uv/) y Docker (o una PostgreSQL 16 propia en `DATABASE_URL`).
+Si Docker Hub responde `429 Too Many Requests`, define `POSTGRES_IMAGE=mirror.gcr.io/library/postgres:16` en `.env`.
 
 ```bash
 cp .env.example .env          # pon tu MERCADO_PUBLICO_TICKET
 uv sync
 make up                       # PostgreSQL en localhost:5432
 make backfill FROM=2025-1     # descarga masiva mensual, hasta el mes actual
-make incremental              # detalles de la API de ayer (DAY=2026-10-04 para otro día)
+make incremental              # detalles de la API de ayer, ~50 min por día hábil (DAY=2026-10-04 para otro día)
 make status                   # qué está cargado
 make test lint
 ```

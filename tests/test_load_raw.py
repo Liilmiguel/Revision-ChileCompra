@@ -82,3 +82,45 @@ def test_upsert_api_details(conn):
     finally:
         conn.execute("delete from raw.api_licitacion where codigo_externo = %s", (code,))
         conn.commit()
+
+
+class FakeClient:
+    def __init__(self, codes):
+        self.codes = codes
+        self.details_pedidos = []
+
+    def listing(self, day):
+        return [{"CodigoExterno": c} for c in self.codes]
+
+    def detail(self, code):
+        self.details_pedidos.append(code)
+        return dict(DETAIL, CodigoExterno=code)
+
+    def mask(self, text):
+        return text
+
+
+def test_incremental_guarda_en_lotes_y_reanuda(conn):
+    from datetime import date
+
+    from observatorio import pipeline
+
+    codes = [f"TEST-{uuid.uuid4().hex[:8]}" for _ in range(5)]
+    day = date(1999, 1, 4)  # fecha que no choca con cargas reales
+    try:
+        # Simula una corrida previa que alcanzó a guardar 2 detalles después del día.
+        load_raw.upsert_api_details(conn, [dict(DETAIL, CodigoExterno=c) for c in codes[:2]])
+        client = FakeClient(codes)
+        res = pipeline.incremental(conn, client, [day], today=date(1999, 1, 10), batch_size=2)
+        assert client.details_pedidos == codes[2:]
+        assert res[day.isoformat()] == "3 licitaciones descargadas, 2 ya estaban"
+        n = conn.execute("select count(*) from raw.api_licitacion where codigo_externo = any(%s)", (codes,)).fetchone()
+        assert n == (5,)
+        # Ya cargado y no es hoy ni ayer: no vuelve a pedir nada.
+        client2 = FakeClient(codes)
+        assert pipeline.incremental(conn, client2, [day], today=date(1999, 1, 10))[day.isoformat()] == "ya cargado"
+        assert client2.details_pedidos == []
+    finally:
+        conn.execute("delete from raw.api_licitacion where codigo_externo = any(%s)", (codes,))
+        conn.execute("delete from raw.extraction_log where source = 'api_listing' and key = '1999-01-04'")
+        conn.commit()

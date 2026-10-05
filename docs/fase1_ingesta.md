@@ -9,7 +9,11 @@ Estado al 2026-10-05.
   `Last-Modified` del zip: ChileCompra regenera meses recientes (2026-8 y 2026-9 tenían
   fecha 2026-10-04/05).
 - **API solo para el incremental**: listado por día de evento + detalle de cada código.
-  Pausa de 1,5 s entre llamadas → un día hábil (~500 licitaciones) toma ~13 minutos.
+  Un día hábil trae ~1.200 licitaciones (2026-10-02: 1.208). Con 1,5 s entre llamadas
+  la API responde HTTP 429 `Codigo 10500` ("peticiones simultáneas") en casi todas;
+  con 2,5 s, 0 rechazos. Resultado: **~50 minutos por día hábil**. Los detalles se
+  guardan en lotes de 50 y una corrida interrumpida reanuda saltando los ya
+  descargados después del día del evento.
 - **Raw sin tipar**: todo como texto en jsonb; el tipado (montos en tres formatos,
   fechas, renombre de columnas entre épocas) es trabajo de staging (Fase 2, dbt).
 - Se descartó `backfill.py` por API con cupo diario del plan original: la masiva cubre
@@ -45,4 +49,6 @@ preguntas, no desde 2007.
 
 - Semántica exacta del filtro `fecha` del listado y cuota diaria de la API.
 - Un día del incremental que falla queda en la bitácora como error y no se reintenta
-  solo: hay que correr `observatorio incremental --from <día>`.
+  solo: hay que correr `observatorio incremental --from <día>` (reanuda donde quedó).
+- [Suponiendo] Si la API limita por ticket y no por IP, correr dos incrementales a la
+  vez (p. ej. local y GitHub Actions) provocará 429 en ambos.

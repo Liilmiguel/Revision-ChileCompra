@@ -64,11 +64,14 @@ def incremental(
     *,
     force: bool = False,
     today: date | None = None,
+    batch_size: int = 50,
 ) -> dict[str, str]:
     """Para cada día, pide el listado de la API y el detalle de cada licitación listada.
 
-    Un día ya cargado se salta salvo `force`, excepto hoy y ayer, que pueden seguir
-    recibiendo eventos."""
+    Un día hábil trae ~1.200 licitaciones (~50 min), así que los detalles se guardan
+    en lotes y, al reanudar, se saltan los ya descargados después de ese día (ya
+    reflejan el evento). Un día ya cargado se salta salvo `force`, excepto hoy y
+    ayer, que pueden seguir recibiendo eventos."""
     today = today or date.today()
     results: dict[str, str] = {}
     for day in days:
@@ -79,14 +82,20 @@ def incremental(
             continue
         try:
             codes = [row["CodigoExterno"] for row in client.listing(day)]
-            details = []
-            for code in codes:
+            done = set() if force else load_raw.fetched_after(conn, codes, day)
+            pending = [c for c in codes if c not in done]
+            log.info("%s: %d listadas, %d ya descargadas", key, len(codes), len(done))
+            n, batch = 0, []
+            for code in pending:
                 detail = client.detail(code)
                 if detail is not None:
-                    details.append(detail)
-            n = load_raw.upsert_api_details(conn, details)
+                    batch.append(detail)
+                if len(batch) >= batch_size:
+                    n += load_raw.upsert_api_details(conn, batch)
+                    batch = []
+            n += load_raw.upsert_api_details(conn, batch)
             load_raw.log_extraction(conn, "api_listing", key, "ok", rows=n, started_at=started)
-            results[key] = f"{n} licitaciones"
+            results[key] = f"{n} licitaciones descargadas, {len(done)} ya estaban"
         except ApiError as exc:
             conn.rollback()
             load_raw.log_extraction(conn, "api_listing", key, "error", error=client.mask(str(exc)), started_at=started)
