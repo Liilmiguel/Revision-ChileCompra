@@ -8,10 +8,12 @@
 ├── .env.example             # MERCADO_PUBLICO_TICKET (el .env real está en .gitignore)
 ├── src/observatorio/
 │   ├── api_client.py        # httpx + reintentos/backoff + rate limit + enmascarado del ticket
-│   ├── bulk.py              # descarga masiva mensual (backfill histórico), si la Fase 0 la valida
-│   ├── backfill.py          # cupo diario configurable, reanudable vía extraction_log
-│   └── load_raw.py          # upsert a raw.* (jsonb + extracted_at) por CodigoExterno
+│   ├── bulk.py              # descarga masiva mensual (fuente principal, backfill histórico)
+│   ├── load_raw.py          # escritura en raw.* y bitácora raw.extraction_log
+│   ├── pipeline.py          # backfill (masiva, reanudable por Last-Modified) e incremental (API)
+│   └── cli.py               # `observatorio {init-db,backfill,incremental,status}`
 ├── sql/init/                # DDL de schema raw y raw.extraction_log
+├── .github/workflows/       # ci (tests con PostgreSQL) e ingest (diaria, con secrets)
 ├── dbt/                     # staging → intermediate → marts (+ tests y docs)
 ├── analysis/                # Fase 3: script que responde las 4 preguntas, con SQL
 ├── dashboard/               # Fase 4: Streamlit leyendo un snapshot parquet

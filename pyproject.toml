@@ -3,7 +3,20 @@ name = "observatorio-compras-publicas"
 version = "0.1.0"
 description = "Pipeline y análisis de licitaciones de Mercado Público (ChileCompra)"
 requires-python = ">=3.12"
-dependencies = ["httpx>=0.27"]
+dependencies = [
+    "httpx>=0.27",
+    "psycopg[binary]>=3.2",
+]
+
+[project.scripts]
+observatorio = "observatorio.cli:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/observatorio"]
 
 [dependency-groups]
 dev = ["ruff>=0.6", "pytest>=8"]
@@ -14,3 +27,9 @@ target-version = "py312"
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["observatorio"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
