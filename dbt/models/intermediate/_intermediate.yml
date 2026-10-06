@@ -11,3 +11,26 @@ models:
         tests:
           - accepted_values:
               arguments: {values: ['cantidad', 'tope', 'estimado']}
+
+  - name: int_licitacion_competencia
+    description: Competencia efectiva por licitación (oferentes aceptados/rechazados, sobreprecio frente a la oferta aceptada más barata).
+    columns:
+      - name: codigo_externo
+        tests: [unique, not_null]
+
+  - name: int_precio_referencia
+    description: Mediana de precio unitario adjudicado por producto ONU × unidad, solo bienes homogéneos.
+    tests:
+      - unique_combination:
+          arguments: {columns: [onu, um]}
+
+  - name: int_licitacion_senales
+    description: Seis señales de riesgo por licitación adjudicada y su puntaje ponderado (0–100).
+    columns:
+      - name: codigo_externo
+        tests: [unique, not_null]
+      - name: puntaje_riesgo
+        tests:
+          - not_null
+          - accepted_range:
+              arguments: {min_value: 0, max_value: 100}

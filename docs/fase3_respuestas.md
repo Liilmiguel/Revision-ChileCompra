@@ -103,11 +103,52 @@ De 288.632 licitaciones cerradas hace más de 120 días, **12,9 % quedó desiert
 
 ## Señales de alerta
 
-Adjudicadas según cuántas señales acumulan (oferente único, >20 % sobre estimado, plazo en el 10 % más corto de su tipo):
+Cada licitación adjudicada suma un puntaje de 0 a 100 con seis señales ponderadas (definiciones en `docs/fase3_preguntas.md`). **1.169 licitaciones tienen riesgo alto** (puntaje ≥ 40, 0,45 % de las adjudicadas) y suman $ 361 mil millones; 82.972 tienen riesgo medio, casi todas solo por oferente único.
 
-| senales | n |
-|---|---|
-| 0 | 181.936 |
-| 1 | 68.485 |
-| 2 | 6.940 |
-| 3 | 87 |
+| señal | peso | % de las adjudicadas |
+|---|---|---|
+| Oferente único | 25 | 21,6 % |
+| Competencia descalificada | 25 | 6,1 % |
+| Pagó 50 % más que la oferta más barata | 20 | 4,9 % |
+| Adjudicado más de 20 % sobre lo estimado | 15 | 1,3 % |
+| Plazo de ofertas muy corto | 10 | 9,2 % |
+| Precio unitario más de 5 veces la referencia | 5 | 1,2 % |
+
+### Proveedores con más monto en licitaciones de riesgo alto
+
+Dependencia: parte de sus ingresos que viene de su organismo principal. Captura: parte del gasto de ese organismo que se lleva. Una fila aquí no implica irregularidad del proveedor: las señales describen cómo se hizo la licitación.
+
+| proveedor | ganadas | riesgo alto | monto riesgo alto | % único | organismo principal | dependencia | captura | acompañantes |
+|---|---|---|---|---|---|---|---|---|
+| Remavesa S.A. | 4 | 2 | $ 58,5 mil millones | 75 % | MINISTERIO DE OBRAS PUBLICAS DIREC CION GRAL DE OO PP DCYF | 100 % | 8 % | 0 |
+| CONSTRUCTORA TRICAM SpA. | 33 | 1 | $ 46,0 mil millones | 27 % | MINISTERIO DE OBRAS PUBLICAS DIREC CION GRAL DE OO PP DCYF | 100 % | 4 % | 2 |
+| De Vicente Ingenieria y Construccion | 3 | 2 | $ 44,8 mil millones | 67 % | MINISTERIO DE OBRAS PUBLICAS DIREC CION GRAL DE OO PP DCYF | 100 % | 17 % | 0 |
+| INGENIERIA Y CONSTRUCCION M.S.T. SpA | 7 | 2 | $ 13,0 mil millones | 14 % | MINISTERIO DE OBRAS PUBLICAS DIREC CION GRAL DE OO PP DCYF | 54 % | 6 % | 0 |
+| Pavimentos Quilín Ltda. | 30 | 1 | $ 12,8 mil millones | 20 % | MINISTERIO DE OBRAS PUBLICAS DIREC CION GRAL DE OO PP DCYF | 53 % | 2 % | 0 |
+| Apia SPA | 25 | 3 | $ 9,7 mil millones | 16 % | MINISTERIO DE OBRAS PUBLICAS DIREC CION GRAL DE OO PP DCYF | 96 % | 2 % | 0 |
+| DISEÑOS, SERVICIOS Y CONSTRUCCIONES HIDROSYM LTDA | 4 | 1 | $ 9,1 mil millones | 0 % | I MUNICIPALIDAD DE RENCA | 49 % | 35 % | 0 |
+| SONDA S.A. | 29 | 1 | $ 8,4 mil millones | 17 % | I MUNICIPALIDAD DE COPIAPO | 40 % | 28 % | 0 |
+| Sodexho Chile S.A. | 4 | 1 | $ 6,3 mil millones | 25 % | DIRECCION DE ABASTECIMIENTO DE LA ARMADA | 100 % | 15 % | 0 |
+| CONSTRUCTORA ALVIAL S.A. | 15 | 1 | $ 6,3 mil millones | 7 % | SERVICIO DE VIVIENDA Y URBANIZACION AREA METROPOLITANA | 43 % | 8 % | 0 |
+| Bitumix S.A. | 58 | 2 | $ 5,3 mil millones | 26 % | MINISTERIO DE OBRAS PUBLICAS DIREC CION GRAL DE OO PP DCYF | 71 % | 5 % | 0 |
+| Johnson & Johnson MedTech | 1108 | 1 | $ 4,8 mil millones | 17 % | SERVICIO DE SALUD ORIENTE HOSPITAL DEL SALVADOR | 10 % | 5 % | 0 |
+| Constructora Raymar Ltda. | 3 | 2 | $ 4,8 mil millones | 67 % | MINISTERIO DE OBRAS PUBLICAS DIREC CION GRAL DE OO PP DCYF | 100 % | 12 % | 0 |
+| Constructora FV SpA. | 6 | 1 | $ 4,4 mil millones | 17 % | MINISTERIO DE OBRAS PUBLICAS DIREC CION GRAL DE OO PP DCYF | 100 % | 2 % | 0 |
+| SOCIEDAD CONSTRUCTORA HURTADO LTDA  | 9 | 2 | $ 3,7 mil millones | 56 % | SERVICIO DE VIVIENDA Y URBANIZACION X REGION | 40 % | 19 % | 0 |
+
+### Organismos con mayor proporción de riesgo alto
+
+| organismo | adjudicadas | % riesgo alto | % único | % descalificada |
+|---|---|---|---|---|
+| DELEGACIÓN PRESIDENCIAL PROVINCIAL DEL TAMARUGAL | 74 | 23,0 % | 25,7 % | 10,8 % |
+| Ilustre Municipalidad de Ñiquen | 125 | 9,6 % | 18,4 % | 16,0 % |
+| CORPORACION MUNICIPAL DE FOMENTO AL DESARROLLO COMUNAL Y PRODUCTIVO DE LA FLORIDA | 46 | 6,5 % | 30,4 % | 10,9 % |
+| SERVICIO DE VIVIENDA Y URBANIZACION X REGION | 81 | 6,2 % | 23,5 % | 2,5 % |
+| MINISTERIO DE OBRAS PUBLICAS DIREC CION GRAL DE OO PP DCYF | 104 | 5,8 % | 16,3 % | 3,8 % |
+| I MUNICIPALIDAD DE CHONCHI | 168 | 5,4 % | 37,5 % | 13,1 % |
+| I MUNICIPALIDAD DE PURRANQUE | 237 | 5,1 % | 21,1 % | 13,9 % |
+| MINISTERIO DE OBRAS PUBLICAS DIREC CION GRAL DE OO PP DCYF | 192 | 4,7 % | 18,8 % | 5,7 % |
+| SERVICIO SALUD ATACAMA HOSPITAL DE HUASCO | 107 | 4,7 % | 18,7 % | 1,9 % |
+| I MUNICIPALIDAD DE MARIQUINA | 197 | 4,6 % | 19,8 % | 7,1 % |
+
+Pares "acompañante" (ofertan juntos 5+ veces en licitaciones de 2 a 4 oferentes, uno gana 80 %+ y el otro nunca): 372. Pueden ser competencia simulada o mercados de nicho con pocos actores.

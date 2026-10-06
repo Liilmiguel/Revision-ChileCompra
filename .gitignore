@@ -19,3 +19,5 @@ dbt/logs/
 dbt/dbt_packages/
 dbt/.user.yml
 data/snapshot/
+data/web/
+data/vivo/

@@ -23,7 +23,9 @@ QUERIES = {
                moneda, monto_estimado, monto_estimado_visible,
                monto_adjudicado, monto_adjudicado_bruto, moneda_adjudicada, razon_adjudicado_estimado,
                numero_oferentes, n_proveedores_oferentes, n_proveedores_adjudicados,
-               es_oferente_unico, n_lineas_atipicas, link
+               es_oferente_unico, n_lineas_atipicas, link,
+               puntaje_riesgo, s_oferente_unico, s_competencia_descalificada, s_sobre_oferta_barata,
+               s_sobre_estimado, s_plazo_corto, s_precio_referencia, razon_sobre_mas_barata
         from marts.fct_licitacion
         where fecha_publicacion >= %(desde)s
     """,
@@ -34,8 +36,12 @@ QUERIES = {
         where l.fecha_publicacion >= %(desde)s
     """,
     "proveedores": """
-        select codigo_proveedor, rut_proveedor, nombre_proveedor, razon_social_proveedor
+        select codigo_proveedor, rut_proveedor, nombre_proveedor, razon_social_proveedor,
+               n_licitaciones_ofertadas, n_licitaciones_adjudicadas
         from marts.dim_proveedor
+    """,
+    "pares": """
+        select ganador, acompanante, juntos, gana_ganador from marts.fct_par_proveedores
     """,
 }
 

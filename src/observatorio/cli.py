@@ -1,10 +1,11 @@
-"""Línea de comandos: `observatorio {init-db,backfill,incremental,status,snapshot}`."""
+"""Línea de comandos: `observatorio {init-db,backfill,incremental,status,snapshot,vivo}`."""
 
 from __future__ import annotations
 
 import argparse
 import logging
 from datetime import date, timedelta
+from pathlib import Path
 
 from observatorio import bulk, config, load_raw, pipeline
 from observatorio.api_client import MercadoPublicoClient
@@ -32,7 +33,26 @@ def main(argv: list[str] | None = None) -> None:
     p_snap = sub.add_parser("snapshot", help="exporta los marts a Parquet para el dashboard")
     p_snap.add_argument("--desde", default="2024-01-01", help="fecha de publicación mínima AAAA-MM-DD")
 
+    p_vivo = sub.add_parser("vivo", help="licitaciones en curso (abiertas y en evaluación) para la versión web")
+    p_vivo.add_argument("--max-detalles", type=int, default=1500, help="detalles nuevos a pedir a la API (~2,5 s c/u)")
+    p_vivo.add_argument("--meses", type=int, default=4, help="meses recientes de la descarga masiva")
+    p_vivo.add_argument("--semilla", type=Path, help="vivo.json anterior: reutiliza sus detalles de la API")
+
     args = parser.parse_args(argv)
+    if args.command == "vivo":
+        # No usa la base de datos: corre también en una sesión sin PostgreSQL.
+        import os
+
+        from observatorio import vivo
+
+        logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
+        ticket = os.environ.get("MERCADO_PUBLICO_TICKET") or None
+        r = vivo.generar(
+            config.ROOT / "data" / "vivo", config.raw_dir(), ticket, args.max_detalles, args.meses, args.semilla
+        )
+        _print({k: str(v) for k, v in r.items()})
+        return
+
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 
     with load_raw.connect(config.database_url()) as conn:

@@ -88,6 +88,10 @@ class MercadoPublicoClient:
         """Licitaciones cuyo evento (adjudicación, cierre…) ocurrió ese día. Solo 4 campos."""
         return self._get({"fecha": day.strftime("%d%m%Y")})["Listado"]
 
+    def activas(self) -> list[dict]:
+        """Licitaciones publicadas en este momento (solo 4 campos por licitación)."""
+        return self._get({"estado": "activas"})["Listado"]
+
     def detail(self, codigo_externo: str) -> dict | None:
         listado = self._get({"codigo": codigo_externo})["Listado"]
         return listado[0] if listado else None

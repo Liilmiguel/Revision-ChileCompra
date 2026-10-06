@@ -43,6 +43,14 @@ select
     coalesce(o.n_lineas, 0) as n_lineas,
     coalesce(o.n_lineas_adjudicadas, 0) as n_lineas_adjudicadas,
     o.n_proveedores_oferentes = 1 as es_oferente_unico,
+    coalesce(s.puntaje_riesgo, 0) as puntaje_riesgo,
+    coalesce(s.s_oferente_unico, false) as s_oferente_unico,
+    coalesce(s.s_competencia_descalificada, false) as s_competencia_descalificada,
+    coalesce(s.s_sobre_oferta_barata, false) as s_sobre_oferta_barata,
+    coalesce(s.s_sobre_estimado, false) as s_sobre_estimado,
+    coalesce(s.s_plazo_corto, false) as s_plazo_corto,
+    coalesce(s.s_precio_referencia, false) as s_precio_referencia,
+    s.razon_sobre_mas_barata,
     l.cantidad_reclamos,
     l.es_obra,
     l.link,
@@ -51,3 +59,4 @@ from {{ ref('int_licitacion') }} l
 left join {{ ref('estado_licitacion') }} e on e.codigo_estado = l.codigo_estado_actual
 left join {{ ref('tipo_licitacion') }} t on t.tipo = l.tipo
 left join {{ ref('int_licitacion__ofertas') }} o using (codigo_externo)
+left join {{ ref('int_licitacion_senales') }} s using (codigo_externo)

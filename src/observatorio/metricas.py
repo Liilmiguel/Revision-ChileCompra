@@ -24,6 +24,18 @@ import pandas as pd
 DIAS_MADUREZ = 120
 # Umbral de "adjudicado sobre lo estimado" para la señal de alerta.
 RAZON_SOBRE_ESTIMADO = 1.2
+# Señales de riesgo: (columna, etiqueta, peso). Los pesos los fija dbt (var senales); aquí solo se
+# documentan para mostrarlos.
+SENALES = [
+    ("s_oferente_unico", "Oferente único", 25),
+    ("s_competencia_descalificada", "Competencia descalificada", 25),
+    ("s_sobre_oferta_barata", "Pagó 50 % más que la oferta más barata", 20),
+    ("s_sobre_estimado", "Adjudicado más de 20 % sobre lo estimado", 15),
+    ("s_plazo_corto", "Plazo de ofertas muy corto", 10),
+    ("s_precio_referencia", "Precio unitario más de 5 veces la referencia", 5),
+]
+RIESGO_ALTO = 40  # al menos dos señales, una de ellas fuerte
+RIESGO_MEDIO = 20
 # Mínimo de licitaciones adjudicadas para comparar organismos o grupos entre sí.
 MIN_GRUPO = 30
 # Bajo esta razón adjudicado/estimado la licitación casi siempre es un convenio de
@@ -66,7 +78,7 @@ class Observatorio:
         self.dir = snapshot_dir
         self.meta = json.loads((snapshot_dir / "meta.json").read_text())
         self.db = duckdb.connect()
-        for name in ("licitaciones", "adjudicaciones", "proveedores"):
+        for name in ("licitaciones", "adjudicaciones", "proveedores", "pares"):
             path = str(snapshot_dir / f"{name}.parquet").replace("'", "''")
             self.db.execute(f"create view {name} as select * from read_parquet('{path}')")
         self.corte: date = self.db.execute("select max(fecha_publicacion) from licitaciones").fetchone()[0]
@@ -383,52 +395,163 @@ class Observatorio:
         )
 
     # ---------- señales de alerta ----------
+    # Seis señales por licitación adjudicada, ponderadas en un puntaje 0–100 (calculado en dbt,
+    # int_licitacion_senales). Una señal no prueba una irregularidad: es un motivo para revisar.
 
-    def alertas(self, f: Filtros, limite: int = 500) -> pd.DataFrame:
-        """Licitaciones adjudicadas con señales de riesgo. Una señal no es una irregularidad:
-        es un motivo para mirar el expediente."""
+    def _sql_senales(self) -> str:
+        return ", ".join(f"avg({c}::int) {c}" for c, _, _ in SENALES)
+
+    def alertas_resumen(self, f: Filtros) -> dict:
+        """Niveles de riesgo y prevalencia de cada señal entre las adjudicadas."""
         cte, p = self._lic(f)
+        r = self.q(
+            f"""{cte}
+            select count(*) n,
+                   count(*) filter (where puntaje_riesgo >= {RIESGO_ALTO}) alto,
+                   count(*) filter (where puntaje_riesgo >= {RIESGO_MEDIO} and puntaje_riesgo < {RIESGO_ALTO}) medio,
+                   count(*) filter (where puntaje_riesgo > 0 and puntaje_riesgo < {RIESGO_MEDIO}) bajo,
+                   count(*) filter (where puntaje_riesgo = 0) sin,
+                   sum(monto_adjudicado) filter (where puntaje_riesgo >= {RIESGO_ALTO} and moneda_adjudicada = 'CLP')
+                       monto_alto,
+                   {self._sql_senales()}
+            from l where estado_grupo = 'Adjudicada'""",
+            p,
+        ).iloc[0]
+        return r.to_dict()
+
+    def alertas(self, f: Filtros, min_puntaje: int = RIESGO_ALTO, limite: int = 500) -> pd.DataFrame:
+        cte, p = self._lic(f)
+        cols = ", ".join(c for c, _, _ in SENALES)
         return self.q(
-            f"""{cte},
-            p10 as (
-                select tipo, quantile_cont(dias_publicacion_cierre, 0.10) p10
-                from licitaciones where dias_publicacion_cierre >= 0 group by 1
-            ),
-            s as (
-                select l.*,
-                       coalesce(es_oferente_unico, false) s_oferente_unico,
-                       coalesce(razon_adjudicado_estimado > {RAZON_SOBRE_ESTIMADO}, false) s_sobre_estimado,
-                       coalesce(dias_publicacion_cierre < p10.p10, false) s_plazo_corto
-                from l left join p10 using (tipo)
-                where estado_grupo = 'Adjudicada'
-            )
+            f"""{cte}
             select codigo_externo, nombre, nombre_organismo, tipo_descripcion, fecha_publicacion,
-                   dias_publicacion_cierre, n_proveedores_oferentes, monto_estimado, monto_adjudicado,
-                   moneda_adjudicada, razon_adjudicado_estimado,
-                   s_oferente_unico, s_sobre_estimado, s_plazo_corto,
-                   s_oferente_unico::int + s_sobre_estimado::int + s_plazo_corto::int senales, link
-            from s
-            where s_oferente_unico or s_sobre_estimado or s_plazo_corto
-            order by senales desc, monto_adjudicado desc nulls last
+                   puntaje_riesgo, {cols}, n_proveedores_oferentes, dias_publicacion_cierre,
+                   monto_estimado, monto_adjudicado, moneda_adjudicada, razon_adjudicado_estimado,
+                   razon_sobre_mas_barata, link
+            from l
+            where estado_grupo = 'Adjudicada' and puntaje_riesgo >= {int(min_puntaje)}
+            order by puntaje_riesgo desc, monto_adjudicado desc nulls last
             limit {int(limite)}""",
             p,
         )
 
-    def alertas_resumen(self, f: Filtros) -> pd.DataFrame:
+    def _adj_riesgo(self, f: Filtros) -> tuple[str, list]:
+        """Adjudicaciones en CLP de licitaciones adjudicadas, con el puntaje de la licitación."""
+        cte, p = self._lic(f)
+        cols = ", ".join(f"l.{c}" for c, _, _ in SENALES)
+        return (
+            f"""{cte},
+            a as (
+                select a.codigo_proveedor, a.codigo_externo, a.monto_adjudicado monto,
+                       l.codigo_organismo, l.nombre_organismo, l.puntaje_riesgo, {cols}
+                from adjudicaciones a join l using (codigo_externo)
+                where a.moneda = 'CLP' and a.monto_adjudicado > 0 and l.estado_grupo = 'Adjudicada'
+            )""",
+            p,
+        )
+
+    def proveedores_riesgo(self, f: Filtros, min_lic: int = 3, limite: int | None = None) -> pd.DataFrame:
+        """Una fila por proveedor: cuánto gana, con qué señales, y de cuánto depende de un organismo.
+
+        - dependencia: parte de los ingresos del proveedor que viene de su organismo principal.
+        - captura: parte del gasto de ese organismo que se lleva el proveedor.
+        - max_unico_org: máximo de licitaciones ganadas sin competencia en un mismo organismo."""
+        cte, p = self._adj_riesgo(f)
+        señales = ", ".join(f"sum({c}::int) n_{c[2:]}" for c, _, _ in SENALES)
+        lim = f"limit {int(limite)}" if limite else ""
+        return self.q(
+            f"""{cte},
+            org_total as (select codigo_organismo, sum(monto) total from a group by 1),
+            po as (
+                select codigo_proveedor, codigo_organismo, any_value(nombre_organismo) nombre_organismo,
+                       sum(monto) monto, count(distinct codigo_externo) filter (where s_oferente_unico) unico
+                from a group by 1, 2
+            ),
+            top_org as (
+                select distinct on (codigo_proveedor) codigo_proveedor, codigo_organismo, nombre_organismo,
+                       monto monto_org
+                from po order by codigo_proveedor, monto desc, codigo_organismo
+            ),
+            lic as (
+                select distinct codigo_proveedor, codigo_externo, puntaje_riesgo,
+                       {", ".join(c for c, _, _ in SENALES)}
+                from a
+            ),
+            pr as (
+                select codigo_proveedor, count(*) n_lic, avg(puntaje_riesgo) puntaje_medio,
+                       count(*) filter (where puntaje_riesgo >= {RIESGO_ALTO}) n_alto,
+                       avg(s_oferente_unico::int) pct_unico, {señales}
+                from lic group by 1
+            ),
+            m as (
+                select codigo_proveedor, sum(monto) monto, count(distinct codigo_organismo) n_org,
+                       sum(monto) filter (where puntaje_riesgo >= {RIESGO_ALTO}) monto_alto
+                from a group by 1
+            )
+            select pr.codigo_proveedor, pv.nombre_proveedor proveedor, pv.rut_proveedor rut,
+                   pr.n_lic, m.monto, m.n_org, pr.puntaje_medio, pr.n_alto, coalesce(m.monto_alto, 0) monto_alto,
+                   pr.pct_unico, t.nombre_organismo organismo_principal,
+                   t.monto_org / m.monto dependencia, t.monto_org / ot.total captura,
+                   (select max(unico) from po where po.codigo_proveedor = pr.codigo_proveedor) max_unico_org,
+                   pv.n_licitaciones_ofertadas n_ofertadas,
+                   (select count(*) from pares where pares.ganador = pr.codigo_proveedor) n_acompanantes,
+                   {", ".join(f"pr.n_{c[2:]}" for c, _, _ in SENALES)}
+            from pr join m using (codigo_proveedor)
+            join top_org t using (codigo_proveedor)
+            join org_total ot on ot.codigo_organismo = t.codigo_organismo
+            left join proveedores pv using (codigo_proveedor)
+            where pr.n_lic >= {int(min_lic)}
+            order by monto_alto desc, pr.n_alto desc, m.monto desc
+            {lim}""",
+            p,
+        )
+
+    def organismos_riesgo(self, f: Filtros, min_lic: int = MIN_GRUPO) -> pd.DataFrame:
         cte, p = self._lic(f)
         return self.q(
             f"""{cte},
-            p10 as (
-                select tipo, quantile_cont(dias_publicacion_cierre, 0.10) p10
-                from licitaciones where dias_publicacion_cierre >= 0 group by 1
-            ),
-            s as (
-                select coalesce(es_oferente_unico, false)::int
-                     + coalesce(razon_adjudicado_estimado > {RAZON_SOBRE_ESTIMADO}, false)::int
-                     + coalesce(dias_publicacion_cierre < p10.p10, false)::int senales
-                from l left join p10 using (tipo)
-                where estado_grupo = 'Adjudicada'
+            o as (
+                select codigo_organismo, any_value(nombre_organismo) organismo, count(*) n,
+                       avg(puntaje_riesgo) puntaje_medio,
+                       avg((puntaje_riesgo >= {RIESGO_ALTO})::int) pct_alto,
+                       count(*) filter (where puntaje_riesgo >= {RIESGO_ALTO}) n_alto,
+                       avg(s_oferente_unico::int) pct_unico,
+                       avg(s_competencia_descalificada::int) pct_descalificada,
+                       coalesce(sum(monto_adjudicado) filter (
+                           where puntaje_riesgo >= {RIESGO_ALTO} and moneda_adjudicada = 'CLP'
+                       ), 0) monto_alto
+                from l where estado_grupo = 'Adjudicada' group by 1
             )
-            select senales, count(*) n from s group by 1 order by 1""",
+            select * from o where n >= {int(min_lic)} order by pct_alto desc, n desc""",
             p,
         )
+
+    def proveedor(self, codigo: str, f: Filtros) -> dict[str, pd.DataFrame]:
+        """Ficha de un proveedor: sus licitaciones ganadas, organismos y acompañantes."""
+        cte, p = self._adj_riesgo(f)
+        lic = self.q(
+            f"""{cte}
+            select a.codigo_externo, l.nombre, a.nombre_organismo, l.fecha_publicacion, a.puntaje_riesgo,
+                   {", ".join(f"a.{c}" for c, _, _ in SENALES)}, l.n_proveedores_oferentes, a.monto, l.link
+            from a join l using (codigo_externo)
+            where a.codigo_proveedor = ?
+            order by a.puntaje_riesgo desc, a.monto desc""",
+            [*p, codigo],
+        )
+        orgs = self.q(
+            f"""{cte},
+            ot as (select codigo_organismo, sum(monto) total from a group by 1)
+            select a.nombre_organismo organismo, count(distinct codigo_externo) n_lic, sum(monto) monto,
+                   avg(s_oferente_unico::int) pct_unico, sum(monto) / any_value(ot.total) captura
+            from a join ot using (codigo_organismo)
+            where a.codigo_proveedor = ?
+            group by a.codigo_organismo, a.nombre_organismo order by monto desc""",
+            [*p, codigo],
+        )
+        pares = self.q(
+            """select pv.nombre_proveedor acompanante, juntos, gana_ganador from pares
+               left join proveedores pv on pv.codigo_proveedor = pares.acompanante
+               where ganador = ? order by juntos desc""",
+            [codigo],
+        )
+        return {"licitaciones": lic, "organismos": orgs, "acompanantes": pares}
