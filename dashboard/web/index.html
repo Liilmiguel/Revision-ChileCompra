@@ -126,13 +126,17 @@ tr.clic:hover td { background: var(--chip); }
 .punt.medio { background: var(--warn-bg); color: var(--warn-ink); }
 .punt.bajo { background: var(--chip); color: var(--ink2); }
 .barra { display: inline-block; height: 8px; border-radius: 2px; background: var(--s1); vertical-align: middle; margin-right: 6px; }
-.ficha { border-top: 3px solid var(--accent); display: grid; gap: 14px; scroll-margin-top: 150px; }
+.ficha { border-top: 3px solid var(--accent); display: grid; grid-template-columns: minmax(0, 1fr); gap: 14px; scroll-margin-top: 150px; }
 .ficha .kpi .v { font-size: 21px; }
 /* La primera columna (nombre) queda fija al desplazar tablas anchas. */
 #t-alertas td:first-child, #t-alertas th:first-child { position: sticky; left: 0; background: var(--surface); z-index: 1; }
 #t-alertas th:first-child { z-index: 2; }
 #t-alertas tr.clic:hover td:first-child { background: var(--chip); }
 .pares { display: flex; flex-wrap: wrap; gap: 6px; }
+.marca.baja { background: var(--warn-bg); color: var(--warn-ink); }
+.marca.error { background: var(--s2); color: #fff; }
+.senales-lista { margin: 8px 0 0; padding-left: 18px; }
+.senales-lista li { margin: 4px 0; }
 .metodo { max-width: 78ch; display: grid; gap: 10px; }
 .metodo p, .metodo li { color: var(--ink2); }
 .metodo dt { font-weight: 650; margin-top: 8px; }
@@ -173,6 +177,7 @@ footer { margin-top: 32px; font-size: 12.5px; color: var(--muted); }
     <button role="tab" data-tab="concentracion"><span class="n">3</span>Concentración</button>
     <button role="tab" data-tab="proceso"><span class="n">4</span>Proceso</button>
     <button role="tab" data-tab="alertas">Señales de alerta</button>
+    <button role="tab" data-tab="vivo">En curso</button>
     <button role="tab" data-tab="metodologia">Metodología</button>
   </nav>
 
@@ -314,6 +319,43 @@ footer { margin-top: 32px; font-size: 12.5px; color: var(--muted); }
     </div>
   </section>
 
+  <!-- EN CURSO -->
+  <section class="panel" id="p-vivo" role="tabpanel" hidden>
+    <h2>Licitaciones en curso</h2>
+    <p class="sub">Licitaciones que aún no se adjudican: <b>abiertas</b> (reciben ofertas; solo se ven señales del llamado, porque las ofertas son secretas hasta la apertura) y <b>en evaluación</b> (cerradas, con ofertas ya públicas). Se cruzan con el historial: plazos típicos de su tipo, organismos y proveedores con riesgo alto, y pares de acompañantes. Es el momento en que una revisión todavía puede cambiar el resultado.</p>
+    <p class="nota" id="v-fresco"></p>
+    <div class="kpis" id="k-vivo"></div>
+    <div class="card">
+      <div class="controles">
+        <div class="campo"><label>Etapa</label>
+          <div class="seg" role="group" aria-label="Etapa" id="seg-etapa">
+            <button data-etapa="eval" aria-pressed="true">En evaluación</button><button data-etapa="abiertas" aria-pressed="false">Abiertas</button>
+          </div></div>
+        <div class="campo"><label for="v-mostrar">Mostrar</label>
+          <select id="v-mostrar"><option value="40">Puntaje ≥ 40 (riesgo alto)</option><option value="20" selected>Puntaje ≥ 20</option><option value="senales">Con alguna señal</option><option value="baja">Con oferta muy baja</option><option value="todas">Todas</option></select></div>
+        <div class="campo" style="flex:1 1 220px"><label for="v-buscar">Buscar</label>
+          <input type="search" id="v-buscar" placeholder="Nombre, código, organismo o proveedor" autocomplete="off" style="width:100%"></div>
+      </div>
+      <div class="campo"><label>Debe incluir</label><div class="chips" id="v-req"></div></div>
+      <p class="nota" id="v-nota"></p>
+      <div class="tabla" id="t-vivo" style="max-height:600px"></div>
+    </div>
+    <div class="card ficha" id="v-detalle" hidden>
+      <div style="display:flex;justify-content:space-between;gap:12px;align-items:start;flex-wrap:wrap">
+        <div><span class="eyebrow" id="vd-etapa"></span><h2 id="vd-nombre"></h2><p class="nota" id="vd-sub"></p></div>
+        <button class="btn" id="vd-cerrar" type="button">Cerrar</button>
+      </div>
+      <div class="kpis" id="vd-kpis"></div>
+      <h3>Señales</h3>
+      <div id="vd-senales"></div>
+      <div id="vd-w-ofertas">
+        <h3 style="margin-top:14px">Ofertas</h3>
+        <p class="nota">Total ofertado por proveedor. «Frente a pares»: su total dividido por la mediana de las demás ofertas con el mismo número de líneas (se compara solo con 3 o más). Bajo 30 %, oferta anormalmente baja; bajo 5 %, casi siempre un error de digitación o un precio simbólico.</p>
+        <div class="tabla" id="vd-ofertas" style="max-height:420px"></div>
+      </div>
+    </div>
+  </section>
+
   <!-- METODOLOGÍA -->
   <section class="panel" id="p-metodologia" role="tabpanel" hidden>
     <div class="metodo">
@@ -327,6 +369,7 @@ footer { margin-top: 32px; font-size: 12.5px; color: var(--muted); }
         <dt>HHI</dt><dd>Índice Herfindahl-Hirschman: suma de los cuadrados de la participación de cada proveedor en el monto en CLP de un organismo (0 a 10.000). Sobre 2.500, concentración alta.</dd>
         <dt>Puntaje de riesgo</dt><dd>Suma ponderada de seis señales por licitación adjudicada: oferente único (25), competencia descalificada: todos menos el ganador rechazados (25), se pagó al menos 50 % más que la oferta aceptada más barata (20), adjudicado más de 20 % sobre lo estimado (15), plazo de ofertas en el 10 % más corto de su tipo (10) y precio unitario más de 5 veces la referencia del mismo producto (5). Riesgo alto: 40 o más.</dd>
         <dt>Dependencia, captura y acompañantes</dt><dd>Dependencia: parte de los ingresos del proveedor que viene de su organismo principal. Captura: parte del gasto de ese organismo que se lleva. Acompañantes: proveedores que ofertan junto a él 5 o más veces en licitaciones de 2 a 4 oferentes sin ganarle nunca.</dd>
+        <dt>En curso</dt><dd>Abiertas: listado de licitaciones publicadas de la API de ChileCompra y el detalle de cada una. En evaluación: cerradas sin adjudicar de los últimos cuatro meses de la descarga masiva, con sus ofertas. Señales (puntos): oferente único (25), oferta junto a un acompañante habitual (20), todas las ofertas más de 20 % sobre lo estimado (15), estimado más de 1,5 veces el tope del tramo de su tipo (15), plazo en el 10 % más corto de su tipo (10), organismo con 3 o más adjudicadas de riesgo alto y una tasa de al menos 3 veces la nacional (10), oferente con 3 o más ganadas de riesgo alto que sean al menos 10 % de sus ganadas (10). Oferta muy baja: total bajo 30 % de la mediana de las demás del mismo alcance; no suma puntos, se muestra aparte: puede anticipar incumplimiento o ser un error.</dd>
         <dt>Licitaciones maduras</dt><dd>Para la pregunta 4 solo cuentan las cerradas hace más de 120 días, para que las que aún pueden adjudicarse no inflen las tasas de fracaso.</dd>
       </dl>
       <h3>Limitaciones</h3>
@@ -364,13 +407,13 @@ const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<
 const $ = (id) => document.getElementById(id);
 
 let D = null, CAT = null, META = null, MESES = [], PARES = [], CODIGOS = null, NOMBRES = null;
-const estado = { tab: "resumen", dim: "tipo", f: null, vista: "lic", req: 0, orden: {}, prov: null };
+const estado = { tab: "resumen", dim: "tipo", f: null, vista: "lic", req: 0, orden: {}, prov: null, etapa: "eval", vreq: new Set(), vlic: null };
 const FICHA = (codigo) => "http://www.mercadopublico.cl/fichaLicitacion.html?idLicitacion=" + encodeURIComponent(codigo);
 // Etiquetas cortas de las señales, en el orden de meta.SENALES (bits 0–5).
 const CORTO = ["oferente único", "descalificada", "sobre más barata", "sobre estimado", "plazo corto", "precio ref."];
 
 // ---------- pestañas (con #ancla)
-const TABS = ["resumen", "competencia", "precio", "concentracion", "proceso", "alertas", "metodologia"];
+const TABS = ["resumen", "competencia", "precio", "concentracion", "proceso", "alertas", "vivo", "metodologia"];
 function mostrar(tab) {
   if (!TABS.includes(tab)) tab = "resumen";
   estado.tab = tab;
@@ -591,6 +634,7 @@ function render() {
   }
 
   if (tab === "alertas") renderAlertas(X, T);
+  if (tab === "vivo") renderVivo();
 }
 
 // ---------- señales de alerta
@@ -811,6 +855,156 @@ function renderFicha(X, T) {
   ], F.lics, "f-lics", { k: "p", dir: "desc" });
 }
 
+// ---------- en curso (vivo.json, se carga al abrir la pestaña)
+let VIVO = null, cargandoVivo = null;
+function cargarVivo() {
+  if (!cargandoVivo) {
+    cargandoVivo = fetch("vivo.json")
+      .then((r) => { if (!r.ok) throw new Error("vivo.json: HTTP " + r.status); return r.json(); })
+      .then((v) => {
+        const H = Metricas.historialVivo(D, CAT, PARES);
+        const eva = (lic, of) => Object.assign(lic, Metricas.evaluarVivo(D, H, lic, of));
+        for (const l of v.abiertas) { eva(l, null); l.etapa = "abiertas"; }
+        for (const l of v.evaluacion) { eva(l, l.ofertas); l.etapa = "eval"; }
+        VIVO = { ...v, H };
+        render();
+      })
+      .catch((err) => { cargandoVivo = null; $("v-fresco").innerHTML = `<span class="aviso">No se pudieron cargar las licitaciones en curso (${esc(err.message)}).</span>`; });
+  }
+  return cargandoVivo;
+}
+const VS = () => new Map(Metricas.VIVO_SENALES.map(([k, e, w], b) => [k, { e, w, b }]));
+const VCORTO = { unico: "oferente único", acomp: "acompañante", sobre: "sobre estimado", tramo: "sobre tramo", plazo: "plazo corto", org: "organismo", prov: "oferente" };
+const marcasVivo = (l) => l.senales.map(([k]) => `<span class="marca" title="${esc(VS().get(k).e)}">${VCORTO[k]}</span>`).join("") +
+  (l.baja === "posible_error" ? `<span class="marca error" title="Una oferta bajo 5 % de la mediana de sus pares: probable error o precio simbólico">posible error</span>` : l.baja ? `<span class="marca baja" title="Una oferta bajo 30 % de la mediana de sus pares">oferta muy baja</span>` : "");
+const fechaHora = (s) => (s ? s.replace("T", " ") : "—");
+function haceCuanto(iso) {
+  const h = (Date.now() - Date.parse(iso)) / 36e5;
+  if (!(h >= 0)) return "";
+  return h < 1 ? "hace menos de una hora" : h < 48 ? `hace ${Math.round(h)} horas` : `hace ${Math.round(h / 24)} días`;
+}
+function cierraEn(s) {
+  if (!s) return "—";
+  const h = (Date.parse(s) - Date.now()) / 36e5;
+  if (Number.isNaN(h)) return fechaHora(s);
+  if (h < 0) return "ya cerró";
+  return h < 48 ? `en ${Math.max(1, Math.round(h))} h` : `en ${Math.round(h / 24)} días`;
+}
+// Filtros globales que aplican a las licitaciones en curso: tipo, región y organismo.
+function filtroVivo() {
+  const f = estado.f;
+  const tipo = f.tipo == null ? null : CAT.tipos[f.tipo][0];
+  const region = f.region == null ? null : CAT.regiones[f.region - 1].trim();
+  const org = f.org == null ? null : f.org < 0 ? "\0" : CAT.organismos[f.org][0];
+  return (l) => (tipo == null || l.tipo === tipo) && (region == null || l.region === region) && (org == null || l.org === org);
+}
+
+function renderVivo() {
+  if (!VIVO) { $("v-fresco").textContent = "Cargando licitaciones en curso…"; cargarVivo(); return; }
+  const V = VIVO;
+  const api = V.fuentes.api;
+  const masiva = Object.entries(V.fuentes.masiva);
+  $("v-fresco").innerHTML = `Actualizado ${esc(fechaHora(V.generado.slice(0, 16)))} UTC (${haceCuanto(V.generado)}). ` +
+    (api ? `Abiertas: ${num(api.activas)} publicadas según la API, ${num(api.con_detalle)} con detalle (las demás aún sin analizar). ` : "Abiertas: sin datos de la API en esta actualización. ") +
+    `En evaluación: descarga masiva de ${masiva.map(([m]) => m).join(", ")}.`;
+  const pasa = filtroVivo();
+  const ab = V.abiertas.filter(pasa), ev = V.evaluacion.filter(pasa);
+  const alto = (xs) => xs.filter((l) => l.puntaje >= D.k.RIESGO_ALTO).length;
+  kpis("k-vivo", [
+    ["En evaluación", num(ev.length), `${num(ev.filter((l) => l.puntaje > 0).length)} con señales · ${num(alto(ev))} con puntaje ≥ ${D.k.RIESGO_ALTO}`],
+    ["Con oferta muy baja", num(ev.filter((l) => l.baja === "muy_baja").length), `y ${num(ev.filter((l) => l.baja === "posible_error").length)} con posible error`],
+    ["Abiertas", num(ab.length), `${num(ab.filter((l) => l.con_detalle).length)} con detalle · ${num(ab.filter((l) => l.puntaje > 0).length)} con señales tempranas`],
+    ["Cierran en 7 días", num(ab.filter((l) => { const h = (Date.parse(l.cierre) - Date.now()) / 36e5; return h >= 0 && h < 168; }).length)],
+  ]);
+  const etapa = estado.etapa;
+  const mostrar = $("v-mostrar").value;
+  // Abiertas: sin ofertas, el puntaje máximo es 35; no hay ofertas bajas que mostrar.
+  for (const v of ["40", "20", "baja"]) $("v-mostrar").querySelector(`option[value="${v}"]`).disabled = etapa === "abiertas";
+  const req = estado.vreq;
+  const q = $("v-buscar").value.trim().toLowerCase();
+  const nombres = V.proveedores;
+  const filas = (etapa === "eval" ? ev : ab).filter((l) => {
+    if (mostrar === "senales" && !(l.puntaje > 0)) return false;
+    if ((mostrar === "20" || mostrar === "40") && l.puntaje < Number(mostrar)) return false;
+    if (mostrar === "baja" && !l.baja) return false;
+    for (const k of req) if (!l.senales.some(([s]) => s === k)) return false;
+    if (q) {
+      const provs = l.ofertas ? l.ofertas.map((o) => (nombres[o[0]] || []).join(" ")).join(" ") : "";
+      if (!`${l.codigo} ${l.nombre || ""} ${l.org_nombre || ""} ${provs}`.toLowerCase().includes(q)) return false;
+    }
+    return true;
+  });
+  const comun = [
+    { k: "p", t: "Puntaje", v: (l) => puntajeHtml(l.puntaje), html: 1, s: (l) => l.puntaje * 1e15 + (l.estimado || 0) },
+    { k: "s", t: "Señales", v: marcasVivo, html: 1, s: (l) => (l.baja === "posible_error" ? 2 : l.baja ? 1 : 0) + l.senales.length * 10 },
+    { k: "c", t: "Código", v: (l) => l.codigo, code: 1, s: (l) => l.codigo },
+    { k: "n", t: "Licitación", v: (l) => l.nombre || "—", s: (l) => l.nombre || "" },
+    { k: "o", t: "Organismo", v: (l) => l.org_nombre || "—", s: (l) => l.org_nombre || "" },
+    { k: "t", t: "Tipo", v: (l) => l.tipo || "—", s: (l) => l.tipo || "" },
+    { k: "e", t: "Estimado", v: (l) => (l.estimado ? (l.moneda === "CLP" || !l.moneda ? clp(l.estimado) : `${num(l.estimado)} ${l.moneda}`) : "—"), n: 1, s: (l) => l.estimado || null },
+  ];
+  const cols = etapa === "eval"
+    ? [...comun,
+      { k: "of", t: "Oferentes", v: (l) => num(l.ofertas.length), n: 1, s: (l) => l.ofertas.length },
+      { k: "mb", t: "Oferta más baja", v: (l) => { const v = l.ofertas.filter((o) => o[1] > 0); return v.length ? clp(Math.min(...v.map((o) => o[1]))) : "—"; }, n: 1, s: (l) => { const v = l.ofertas.filter((o) => o[1] > 0); return v.length ? Math.min(...v.map((o) => o[1])) : null; } },
+      { k: "ci", t: "Cerró", v: (l) => l.cierre || "—", s: (l) => l.cierre || "" },
+      { k: "f", t: "Ficha", v: (l) => `<a href="${FICHA(l.codigo)}" target="_blank" rel="noopener">Abrir</a>`, html: 1 }]
+    : [...comun,
+      { k: "ci", t: "Cierra", v: (l) => `${cierraEn(l.cierre)}<br><span class="nota">${esc(fechaHora(l.cierre))}</span>`, html: 1, s: (l) => l.cierre || "" },
+      { k: "f", t: "Ficha", v: (l) => `<a href="${FICHA(l.codigo)}" target="_blank" rel="noopener">Abrir</a>`, html: 1 }];
+  const r = tablaOrdenable("t-vivo", cols, filas, "vivo-" + etapa, { k: "p", dir: "desc" }, (l) => abrirVivo(l));
+  const sinDetalle = etapa === "abiertas" ? ab.filter((l) => !l.con_detalle).length : 0;
+  $("v-nota").textContent = `${num(r.total)} licitaciones${r.total > r.mostradas ? ` · se muestran ${num(r.mostradas)}` : ""}.` +
+    (sinDetalle ? ` ${num(sinDetalle)} abiertas aún sin detalle (se analizan en las próximas actualizaciones, primero las que cierran antes).` : "") +
+    " Los filtros de tipo, región y organismo aplican aquí; los de fecha y sector no. Clic en una fila para ver el detalle.";
+  if (estado.vlic) renderDetalleVivo();
+}
+
+function abrirVivo(l) {
+  estado.vlic = l;
+  $("v-detalle").hidden = false;
+  renderDetalleVivo();
+  $("v-detalle").scrollIntoView({ behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth", block: "start" });
+}
+
+function renderDetalleVivo() {
+  const l = estado.vlic;
+  const S = VS();
+  $("vd-etapa").textContent = l.etapa === "eval" ? "En evaluación" : "Abierta";
+  $("vd-nombre").textContent = l.nombre || l.codigo;
+  $("vd-sub").innerHTML = `${esc(l.codigo)} · ${esc(l.org_nombre || "organismo sin detalle")}${l.region ? " · " + esc(l.region) : ""} · <a href="${FICHA(l.codigo)}" target="_blank" rel="noopener">Ver ficha en Mercado Público</a>`;
+  const est = l.estimado ? (l.moneda === "CLP" || !l.moneda ? clp(l.estimado) : `${num(l.estimado)} ${l.moneda}`) : "—";
+  kpis("vd-kpis", [
+    ["Puntaje", String(l.puntaje)],
+    ["Monto estimado", est],
+    ["Publicada", l.publicada || "—"],
+    l.etapa === "eval" ? ["Cerró", l.cierre || "—", l.adjudicacion_estimada ? `adjudicación estimada ${l.adjudicacion_estimada}` : ""] : ["Cierra", cierraEn(l.cierre), fechaHora(l.cierre)],
+  ]);
+  const prov = (c) => VIVO.proveedores[c] || ["—", ""];
+  const lista = l.senales.map(([k, txt, idx]) => {
+    let extra = "";
+    if (k === "prov") extra = ": " + idx.map((i) => { const r = VIVO.H.provs.get(i); return `<a href="#" data-prov="${i}">${esc(CAT.proveedores[i][0])}</a> (${r.n_alto} de ${r.n_lic} ganadas con riesgo alto)`; }).join("; ");
+    return `<li><b>${esc(S.get(k).e)}</b> · ${S.get(k).w} pts — ${esc(txt)}${extra}</li>`;
+  });
+  if (l.baja) lista.push(`<li><b>${l.baja === "posible_error" ? "Posible error en una oferta" : "Oferta anormalmente baja"}</b> — sin puntos; ver la tabla de ofertas.</li>`);
+  $("vd-senales").innerHTML = lista.length ? `<ul class="senales-lista">${lista.join("")}</ul>` : `<p class="nota">${l.etapa === "abiertas" && !l.con_detalle ? "Aún sin detalle: se analizará en la próxima actualización." : "Sin señales."}</p>`;
+  $("vd-w-ofertas").hidden = !l.ofertas;
+  if (l.ofertas) {
+    const filas = l.ofertas.map(([c, total, lineas, rech, razon, clase]) => ({ c, total, lineas, rech, razon, clase, i: VIVO.H.provIdx.get(c) }));
+    tablaOrdenable("vd-ofertas", [
+      { k: "nm", t: "Proveedor", v: (o) => (o.i != null ? `<a href="#" data-prov="${o.i}">${esc(prov(o.c)[0])}</a>` : esc(prov(o.c)[0])), html: 1, s: (o) => prov(o.c)[0] },
+      { k: "rut", t: "RUT", v: (o) => prov(o.c)[1], code: 1 },
+      { k: "tt", t: "Total ofertado", v: (o) => clp(o.total), n: 1, s: (o) => o.total },
+      { k: "li", t: "Líneas", v: (o) => num(o.lineas), n: 1, s: (o) => o.lineas },
+      { k: "rz", t: "Frente a pares", v: (o) => (o.razon == null ? "—" : pct(o.razon, 0)), n: 1, s: (o) => o.razon },
+      { k: "mc", t: "Marca", v: (o) => (o.clase === "posible_error" ? '<span class="marca error">posible error</span>' : o.clase === "muy_baja" ? '<span class="marca baja">muy baja</span>' : "") + (o.rech ? '<span class="marca">rechazada</span>' : ""), html: 1 },
+      { k: "hg", t: "Ganadas (historial)", v: (o) => { const r = o.i != null && VIVO.H.provs.get(o.i); return r ? num(r.n_lic) : "0"; }, n: 1, s: (o) => { const r = o.i != null && VIVO.H.provs.get(o.i); return r ? r.n_lic : 0; } },
+      { k: "ha", t: "Con riesgo alto", v: (o) => { const r = o.i != null && VIVO.H.provs.get(o.i); return r ? num(r.n_alto) : "0"; }, n: 1, s: (o) => { const r = o.i != null && VIVO.H.provs.get(o.i); return r ? r.n_alto : 0; } },
+    ], filas, "vd-ofertas", { k: "tt", dir: "asc" });
+  }
+  $("v-detalle").querySelectorAll("a[data-prov]").forEach((el) => el.addEventListener("click", (e) => { e.preventDefault(); mostrar("alertas"); abrirFicha(Number(el.dataset.prov)); }));
+}
+
 // ---------- carga
 async function iniciar() {
   // Los binarios se publican en base64 (.b64.txt): la plataforma no sirve archivos .bin.
@@ -872,6 +1066,25 @@ async function iniciar() {
     $("a-buscar").addEventListener("input", () => { clearTimeout(tBuscar); tBuscar = setTimeout(render, 200); });
     for (const id of ["a-min", "a-minlic"]) $(id).addEventListener("change", render);
     $("f-cerrar").addEventListener("click", () => { estado.prov = null; $("ficha").hidden = true; });
+    document.querySelectorAll("#seg-etapa button").forEach((b) => b.addEventListener("click", () => {
+      estado.etapa = b.dataset.etapa;
+      document.querySelectorAll("#seg-etapa button").forEach((x) => x.setAttribute("aria-pressed", x === b));
+      const m = $("v-mostrar");
+      if (estado.etapa === "abiertas" && ["40", "20", "baja"].includes(m.value)) m.value = "senales";
+      else if (estado.etapa === "eval" && m.value === "senales") m.value = "20";
+      render();
+    }));
+    $("v-req").innerHTML = Metricas.VIVO_SENALES.map(([k, e, w]) => `<button type="button" data-k="${k}" aria-pressed="false" title="${esc(e)} (${w} pts)">${VCORTO[k]}</button>`).join("");
+    $("v-req").querySelectorAll("button").forEach((b) => b.addEventListener("click", () => {
+      const k = b.dataset.k;
+      if (estado.vreq.has(k)) estado.vreq.delete(k); else estado.vreq.add(k);
+      b.setAttribute("aria-pressed", estado.vreq.has(k));
+      render();
+    }));
+    let tBuscarV;
+    $("v-buscar").addEventListener("input", () => { clearTimeout(tBuscarV); tBuscarV = setTimeout(render, 200); });
+    $("v-mostrar").addEventListener("change", render);
+    $("vd-cerrar").addEventListener("click", () => { estado.vlic = null; $("v-detalle").hidden = true; });
     const redibujar = () => { for (const k of Object.keys(charts)) { charts[k].destroy(); delete charts[k]; } render(); };
     matchMedia("(prefers-color-scheme: dark)").addEventListener("change", redibujar);
     new MutationObserver(redibujar).observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });

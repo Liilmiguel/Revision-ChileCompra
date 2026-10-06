@@ -403,7 +403,104 @@
     };
   }
 
-  const M = { cargar, mascara, cuantil, mediana, resumen, mensual, competencia, competenciaPor, precio, concentracion, proceso, alertasResumen, proveedoresRiesgo, organismosRiesgo, fichaProveedor };
+  // ---------- en curso (vivo.json): licitaciones abiertas y cerradas en evaluación.
+  // Se cruzan con el historial completo (sin filtros): plazos típicos por tipo, organismos y
+  // proveedores con riesgo alto, y pares de acompañantes. Pesos en el orden de VIVO_SENALES.
+  const VIVO_SENALES = [
+    ["unico", "Oferente único", 25],
+    ["acomp", "Oferta junto a un acompañante habitual del mismo proveedor", 20],
+    ["sobre", "Todas las ofertas más de 20 % sobre lo estimado", 15],
+    ["tramo", "Monto estimado sobre el tramo legal de su tipo (procedimiento más corto que el que corresponde)", 15],
+    ["plazo", "Plazo para ofertar en el 10 % más corto de su tipo", 10],
+    ["org", "Organismo con historial de riesgo alto", 10],
+    ["prov", "Oferente con historial de riesgo alto", 10],
+  ];
+  // Organismo / proveedor "con historial": 3+ licitaciones de riesgo alto y una tasa de riesgo
+  // alto de al menos 3 veces la nacional (organismos) o 10 % de sus ganadas (proveedores).
+  const HIST_MIN_ALTO = 3;
+  const HIST_ORG_VECES = 3;
+  const HIST_PROV_PCT = 0.1;
+
+  function historialVivo(d, cat, pares) {
+    const todo = new Uint8Array(d.n).fill(1);
+    const K = d.k;
+    const dias = new Map();
+    for (let i = 0; i < d.n; i++) {
+      if (d.c.dofer[i] === NA16) continue;
+      const t = cat.tipos[d.c.tipo[i]][0];
+      if (!dias.has(t)) dias.set(t, []);
+      dias.get(t).push(d.c.dofer[i]);
+    }
+    const p10 = new Map([...dias].filter(([, v]) => v.length >= K.MIN_GRUPO).map(([t, v]) => [t, cuantil(ordenar(v), 0.1)]));
+    const a = alertasResumen(d, todo);
+    const tasa = a.n ? a.alto / a.n : 0;
+    const orgs = new Map();
+    for (const r of organismosRiesgo(d, todo, 1)) {
+      if (r.n_alto >= HIST_MIN_ALTO && r.pct_alto >= HIST_ORG_VECES * tasa) orgs.set(cat.organismos[r.org][0], r);
+    }
+    const provIdx = new Map(cat.proveedores.map((p, i) => [p[3], i]));
+    const provs = new Map();
+    for (const r of proveedoresRiesgo(d, todo, 1, pares)) provs.set(r.prov, r);
+    const acomp = new Map(); // ganador (índice) -> Map(código acompañante -> [nombre, juntos])
+    for (const [g, n, j, , c] of pares) {
+      if (!acomp.has(g)) acomp.set(g, new Map());
+      acomp.get(g).set(c, [n, j]);
+    }
+    return { p10, tasa, orgs, provIdx, provs, acomp, nombres: cat.proveedores };
+  }
+
+  // Estimado creíble (como int_linea_adjudicada): bajo $1 millón suele ser simbólico ($1).
+  const ESTIMADO_MIN = 1e6;
+  const nf = (x, d = 0) => x.toLocaleString("es-CL", { maximumFractionDigits: d });
+  const diasEntre = (a, b) => (Date.parse(b.slice(0, 10)) - Date.parse(a.slice(0, 10))) / 864e5;
+
+  // Señales de una licitación en curso. `ofertas`: arreglos con campos `campos` (vivo.json),
+  // o null en las abiertas (las ofertas son secretas hasta la apertura).
+  function evaluarVivo(d, H, lic, ofertas) {
+    const K = d.k;
+    const s = [];
+    const tope = K.TOPES_UTM[lic.tipo];
+    if (lic.moneda === "CLP" && tope && lic.estimado > 1.5 * tope * K.UTM_CLP)
+      s.push(["tramo", `estimado ${nf(lic.estimado / K.UTM_CLP)} UTM; su tipo (${lic.tipo}) es para menos de ${nf(tope)} UTM`]);
+    const p10 = H.p10.get(lic.tipo);
+    if (lic.publicada && lic.cierre && p10 != null) {
+      const dd = Math.round(diasEntre(lic.publicada, lic.cierre));
+      if (dd < p10) s.push(["plazo", `${dd} días para ofertar; el 10 % más corto de su tipo es menos de ${Math.round(p10)}`]);
+    }
+    const o = H.orgs.get(lic.org);
+    if (o) s.push(["org", `${nf(100 * o.pct_alto, 1)} % de sus adjudicadas con riesgo alto (${o.n_alto}); país: ${nf(100 * H.tasa, 1)} %`]);
+    let baja = null;
+    if (ofertas) {
+      const validas = ofertas.filter((x) => x[1] > 0);
+      if (ofertas.length === 1) s.push(["unico", "una sola oferta"]);
+      if (lic.moneda === "CLP" && lic.estimado >= ESTIMADO_MIN && validas.length) {
+        const min = Math.min(...validas.map((x) => x[1]));
+        if (min > K.RAZON_SOBRE_ESTIMADO * lic.estimado) s.push(["sobre", `la oferta más baja es ${nf((100 * min) / lic.estimado)} % del estimado`]);
+      }
+      const codigos = new Set(ofertas.map((x) => x[0]));
+      const juntos = [];
+      const historial = [];
+      for (const x of ofertas) {
+        const i = H.provIdx.get(x[0]);
+        if (i == null) continue;
+        for (const [c, [n, j]] of H.acomp.get(i) || [])
+          if (codigos.has(c)) juntos.push(`${H.nombres[i][0].trim()} con ${n.trim()}: ${j} veces juntos antes, sin que ${n.trim()} le ganara`);
+        const r = H.provs.get(i);
+        if (r && r.n_alto >= HIST_MIN_ALTO && r.n_alto / r.n_lic >= HIST_PROV_PCT) historial.push(i);
+      }
+      if (juntos.length) s.push(["acomp", juntos.join("; ")]);
+      if (historial.length) s.push(["prov", `${historial.length} oferente(s)`, historial]);
+      for (const x of ofertas) {
+        if (x[5] === "posible_error") baja = "posible_error";
+        else if (x[5] === "muy_baja" && baja !== "posible_error") baja = "muy_baja";
+      }
+    }
+    const peso = new Map(VIVO_SENALES.map(([k, , w]) => [k, w]));
+    const puntaje = s.reduce((a, [k]) => a + peso.get(k), 0);
+    return { puntaje, senales: s, baja };
+  }
+
+  const M = { cargar, mascara, cuantil, mediana, resumen, mensual, competencia, competenciaPor, precio, concentracion, proceso, alertasResumen, proveedoresRiesgo, organismosRiesgo, fichaProveedor, VIVO_SENALES, historialVivo, evaluarVivo };
   if (typeof module !== "undefined" && module.exports) module.exports = M;
   else root.Metricas = M;
 })(typeof self !== "undefined" ? self : this);

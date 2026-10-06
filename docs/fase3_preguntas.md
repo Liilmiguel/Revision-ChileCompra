@@ -88,6 +88,50 @@ Agregan las licitaciones adjudicadas que ganó cada proveedor (montos en CLP):
   clásica de competencia simulada, pero también aparece en mercados de nicho (372 pares).
 - **Tasa de éxito**: licitaciones ganadas / licitaciones en que ofertó en todo el periodo.
 
+## Licitaciones en curso (pestaña «En curso» de la versión web)
+
+Las señales anteriores se calculan cuando la licitación ya está adjudicada: sirven para
+auditar, no para prevenir. La pestaña «En curso» mira las que aún no se adjudican
+(`src/observatorio/vivo.py` → `data/vivo/vivo.json`; señales en `dashboard/web/metricas.js`,
+`evaluarVivo`, cruzadas con el historial completo):
+
+- **Abiertas**: la descarga masiva no trae licitaciones publicadas (solo las que ya
+  cerraron), así que salen del listado `estado=activas` de la API (~4.400) más el detalle
+  de cada una. La API admite una petición cada ~2,5 s: el detalle de todas toma ~3 horas,
+  así que se guarda en una caché y cada actualización pide solo las nuevas, primero las
+  que cierran antes. Las ofertas son secretas hasta la apertura: solo hay señales del
+  llamado (plazo, tramo, organismo).
+- **En evaluación**: cerradas sin adjudicar (estados 6 y 11–14) de los últimos 4 meses
+  de la descarga masiva, con sus ofertas ya públicas (~7.700).
+
+| señal | peso | definición |
+|---|---|---|
+| Oferente único | 25 | una sola oferta |
+| Acompañante habitual | 20 | ofertan juntos un proveedor y uno de sus acompañantes (`fct_par_proveedores`) |
+| Todas sobre lo estimado | 15 | la oferta más baja supera 1,2 × el estimado (CLP, estimado ≥ $1 millón) |
+| Sobre el tramo de su tipo | 15 | estimado > 1,5 × el tope del tipo (L1 100 UTM, LE 1.000, LP 5.000): un procedimiento más corto que el que corresponde |
+| Plazo corto | 10 | días de publicación a cierre bajo el p10 histórico de su tipo |
+| Organismo con historial | 10 | 3+ adjudicadas de riesgo alto y tasa ≥ 3 × la nacional (45 organismos) |
+| Oferente con historial | 10 | 3+ ganadas de riesgo alto que sean ≥ 10 % de sus ganadas (14 proveedores) |
+
+**Oferta anormalmente baja** (sin puntos, se muestra aparte): el total ofertado está bajo
+30 % de la mediana de las demás ofertas **con el mismo número de líneas** (grupos de 3 o
+más); bajo 5 % se marca como **posible error** (casi siempre $1 o un error de digitación).
+Se omiten las licitaciones por precio unitario (mediana de los totales < 10 % del
+estimado). La primera versión comparaba línea a línea y marcaba 21 % de las licitaciones:
+las diferencias de unidad (caja vs unidad) lo volvían ruido. Con totales del mismo
+alcance: ~5 % muy baja y ~6 % posible error. Una oferta muy baja puede anticipar
+incumplimiento del contrato o ser una oferta «de cobertura»; merece revisión antes de
+adjudicar.
+
+Con los datos al 6 de octubre de 2026: entre 7.732 en evaluación, 54 con puntaje ≥ 40 y
+~1.700 entre 20 y 39 (casi siempre solo oferente único).
+
+**Actualización**: `make vivo` (o `observatorio vivo --semilla <vivo.json anterior>` en una
+sesión sin caché) y `make web`. La página muestra la hora de generación y las fuentes;
+«en vivo» significa tan fresco como la última corrida programada, no tiempo real: la
+página publicada no puede consultar la API de ChileCompra.
+
 ## Limitaciones
 
 - **Montos de convenios de suministro**: se adjudican por precio unitario, así que su
@@ -96,6 +140,10 @@ Agregan las licitaciones adjudicadas que ganó cada proveedor (montos en CLP):
 - **Quiebre de diciembre de 2024**: las licitaciones mensuales caen de ~13.400 a ~8.000.
   [Probable] Entrada en vigencia de la Ley 21.634; las series que cruzan esa fecha
   mezclan dos regímenes.
+- **Cambio de tramos en noviembre de 2025**: desde ese mes casi no se publican LQ
+  (2.000–5.000 UTM) ni H2 y las LP se duplican: LP pasa a cubrir hasta 5.000 UTM
+  (reglamento de la Ley 21.634). Las descripciones de tipo del dashboard («LP 1.000–2.000
+  UTM») corresponden al régimen anterior.
 - **Monedas**: los montos no se convierten. Las sumas de dinero usan solo CLP (~99 %
   de las ofertas); las razones comparan montos en la misma moneda.
 - **Errores de captura**: además de las líneas atípicas, hay precios unitarios que en

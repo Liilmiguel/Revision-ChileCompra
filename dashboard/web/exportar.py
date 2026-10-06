@@ -11,6 +11,7 @@ columnas binarias (typed arrays) y catálogos JSON:
     nombres.json    nombre de las licitaciones con puntaje de riesgo ≥ 20 (carga diferida)
     pares.json      pares "acompañante" de proveedores (fct_par_proveedores)
     meta.json       layout de los binarios, fecha de corte y constantes
+    vivo.json       licitaciones en curso (copia de data/vivo/vivo.json, ver observatorio.vivo)
 
 Las reglas son las de observatorio.metricas: los números deben coincidir con el
 dashboard Streamlit y con docs/fase3_respuestas.md (lo verifica web/verificar.mjs).
@@ -171,11 +172,12 @@ def main(out: Path) -> None:
             str(nombres["nombre_proveedor"].get(p) or p),
             str(nombres["rut_proveedor"].get(p) or ""),
             int(nombres["n_licitaciones_ofertadas"].get(p) or 0),
+            p,  # CodigoProveedor: cruza a los oferentes de licitaciones en curso con su historial
         ]
         for p in provs
     ]
     pares = [
-        [prov_idx[g], str(nombres["nombre_proveedor"].get(a) or a), int(j), int(w)]
+        [prov_idx[g], str(nombres["nombre_proveedor"].get(a) or a), int(j), int(w), a]
         for g, a, j, w in db.execute("select ganador, acompanante, juntos, gana_ganador from pares").fetchall()
         if g in prov_idx
     ]
@@ -222,6 +224,19 @@ def main(out: Path) -> None:
                     "RIESGO_ALTO": RIESGO_ALTO,
                     "RIESGO_MEDIO": RIESGO_MEDIO,
                     "SENALES": [[c, e, w] for c, e, w in SENALES],
+                    # Tope de cada tipo (UTM) para la pestaña En curso, con el régimen vigente: desde
+                    # noviembre de 2025 no se publican LQ ni H2 y LP / B2 cubren hasta 5.000 UTM.
+                    "UTM_CLP": 70000,
+                    "TOPES_UTM": {
+                        "L1": 100,
+                        "E2": 100,
+                        "LE": 1000,
+                        "CO": 1000,
+                        "LP": 5000,
+                        "B2": 5000,
+                        "LQ": 5000,
+                        "H2": 5000,
+                    },
                 },
             },
             indent=1,
@@ -251,6 +266,12 @@ def main(out: Path) -> None:
     # base64 como .txt (la página los decodifica). Los .bin quedan para verificar.py.
     for name in ("lic", "adj"):
         (out / f"{name}.b64.txt").write_bytes(base64.b64encode((out / f"{name}.bin").read_bytes()))
+    # Licitaciones en curso (observatorio vivo): se publica la última generada, si existe.
+    vivo = ROOT / "data" / "vivo" / "vivo.json"
+    if vivo.exists():
+        shutil.copy(vivo, out / "vivo.json")
+    else:
+        print("aviso: falta data/vivo/vivo.json (make vivo); la pestaña En curso no tendrá datos")
     for f in sorted(out.iterdir()):
         print(f"{f.name}: {f.stat().st_size / 1e6:.1f} MB")
 
