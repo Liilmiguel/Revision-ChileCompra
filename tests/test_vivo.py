@@ -1,3 +1,4 @@
+import json
 from datetime import date
 
 from observatorio import vivo
@@ -71,3 +72,18 @@ def test_compactar_guarda_cada_proveedor_una_vez():
     assert provs == {"A": ["Prov A", "A"], "B": ["Prov B", "B"]}
     assert out[0]["ofertas"][0] == ["A", 10.0, 1, 0, None, None]
     assert len(out[0]["ofertas"][0]) == len(vivo.CAMPOS_OFERTA)
+
+
+def test_sin_ticket_conserva_las_abiertas_de_la_semilla(tmp_path, monkeypatch):
+    monkeypatch.setattr(vivo, "meses_recientes", lambda hoy, n: [])
+    previa = {
+        "generado": "2026-10-06T13:46+00:00",
+        "fuentes": {"masiva": {}, "api": {"activas": 1, "con_detalle": 1, "pedidos": 5}},
+        "abiertas": [{"codigo": "1-1-LE26", "con_detalle": True}],
+    }
+    semilla = tmp_path / "previa.json"
+    semilla.write_text(json.dumps(previa))
+    vivo.generar(tmp_path / "out", tmp_path / "raw", None, 0, semilla=semilla)
+    out = json.loads((tmp_path / "out" / "vivo.json").read_text())
+    assert out["abiertas"] == previa["abiertas"]
+    assert out["fuentes"]["api"] == {"activas": 1, "con_detalle": 1, "pedidos": 0, "desde": "2026-10-06T13:46+00:00"}

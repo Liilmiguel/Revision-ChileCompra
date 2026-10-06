@@ -231,10 +231,10 @@ def generar(
     cache_path = out_dir / "api_cache.json"
     cache = json.loads(cache_path.read_text()) if cache_path.exists() else {}
     # En una sesión limpia no hay caché: se reconstruye desde el vivo.json publicado antes.
-    if semilla and semilla.exists():
-        for r in json.loads(semilla.read_text()).get("abiertas", []):
-            if r.pop("con_detalle", False):
-                cache.setdefault(r["codigo"], r)
+    previa = json.loads(semilla.read_text()) if semilla and semilla.exists() else {}
+    for r in previa.get("abiertas", []):
+        if r.get("con_detalle"):
+            cache.setdefault(r["codigo"], {k: v for k, v in r.items() if k != "con_detalle"})
 
     fuentes: dict = {"masiva": {}}
     zips = []
@@ -257,6 +257,14 @@ def generar(
         activas = {a["codigo"] for a in abiertas}
         cache = {k: v for k, v in cache.items() if k in activas}
         cache_path.write_text(json.dumps(cache, ensure_ascii=False))
+    elif previa.get("fuentes", {}).get("api"):
+        # Sin ticket: se conservan las abiertas de la corrida anterior, con su fecha.
+        abiertas = previa["abiertas"]
+        fuentes["api"] = {
+            **previa["fuentes"]["api"],
+            "pedidos": 0,
+            "desde": previa["fuentes"]["api"].get("desde") or previa["generado"],
+        }
     else:
         fuentes["api"] = None
 
