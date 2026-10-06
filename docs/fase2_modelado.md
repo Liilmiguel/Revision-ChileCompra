@@ -55,7 +55,17 @@ make dbt-full   # reconstruye también la tabla incremental
    del CSV; `numero_oferentes` es el campo de origen. Elegir uno según la pregunta.
 4. **La API corrige el estado de meses abiertos**: en 2026-8 y 2026-9, 559 licitaciones
    toman el estado de la API (más reciente que el zip).
-5. **Rendimiento**: sin `materialized` en el CTE, PostgreSQL recalculaba la fusión de
+5. **El archivo de 2026-3 viene dañado en origen** (mismo MD5 en dos descargas; el zip
+   pasa su verificación de integridad): hay bytes sobrescritos dentro del texto
+   (`"P"DRO LAGOS`, `Peso nhileno`, `8210a`). Las comillas sueltas desarman 849 registros
+   (0,5 %), que el lector descarta y anota en `raw.extraction_log`; si un mes supera el
+   2 %, falla completo. Los valores ilegibles que sí entran (11 monedas, 5 números)
+   quedan nulos en staging; los tests `valores_no_parseados` y `moneda_oferta_conocida`
+   avisan desde 1 caso y fallan sobre 50. **También hay dígitos cambiados por otros
+   dígitos**, que solo se detectan cuando un test cruza dos campos: en 1058125-3-LE26,
+   3.490 × 20 = 69.800 pero la línea dice 59.800 (`monto_linea_consistente`). Los montos
+   de 2026-3 son menos confiables que los del resto.
+6. **Rendimiento**: sin `materialized` en el CTE, PostgreSQL recalculaba la fusión de
    jsonb por cada columna (>18 min); con él, 2,5 min para 1,6 M filas. Las corridas
    siguientes solo procesan meses recargados (0,4 s si no hay cambios).
 

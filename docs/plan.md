@@ -15,8 +15,8 @@
 ├── sql/init/                # DDL de schema raw y raw.extraction_log
 ├── .github/workflows/       # ci (tests con PostgreSQL) e ingest (diaria, con secrets)
 ├── dbt/                     # staging → intermediate → marts (+ tests y docs), ver docs/fase2_modelado.md
-├── analysis/                # Fase 3: script que responde las 4 preguntas, con SQL
-├── dashboard/               # Fase 4: Streamlit leyendo un snapshot parquet
+├── analysis/                # Fase 3: responder.py escribe docs/fase3_respuestas.md
+├── dashboard/               # Fase 4: Streamlit sobre data/snapshot/*.parquet (métricas en src/observatorio/metricas.py)
 ├── tests/                   # pytest con fixtures redactadas desde data/samples
 ├── scripts/                 # exploración Fase 0
 ├── docs/                    # plan, mapeo de nombres, diccionario oficial resumido

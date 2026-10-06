@@ -13,16 +13,31 @@ models:
           - not_null
           - accepted_values:
               arguments: {values: ['Publicada', 'Cerrada', 'Desierta', 'Adjudicada', 'Revocada', 'Suspendida']}
+      - name: dias_publicacion_cierre
+        description: Días entre publicación y cierre de recepción de ofertas.
+      - name: dias_cierre_adjudicacion
+        description: Días entre cierre y adjudicación; solo adjudicadas.
       - name: fecha_adjudicacion
         description: Solo para licitaciones adjudicadas; en las demás la fuente trae una fecha estimada.
       - name: monto_adjudicado
         description: >
-          Suma de las líneas adjudicadas sin las de cantidad adjudicada atípica
-          (`n_lineas_atipicas`); `monto_adjudicado_bruto` las incluye.
+          Suma de las líneas adjudicadas sin las de monto atípico (`n_lineas_atipicas`,
+          ver int_linea_adjudicada); `monto_adjudicado_bruto` las incluye.
       - name: razon_adjudicado_estimado
         description: monto_adjudicado / monto_estimado cuando ambos están en la misma moneda.
       - name: es_oferente_unico
         description: Una sola empresa ofertó (por CodigoProveedor). Null si no hay ofertas en la masiva.
+
+  - name: fct_adjudicacion
+    description: Una fila por licitación × proveedor adjudicado × moneda, sin líneas de monto atípico.
+    tests:
+      - unique_combination:
+          arguments: {columns: [codigo_externo, codigo_proveedor, moneda]}
+    columns:
+      - name: codigo_externo
+        tests:
+          - relationships:
+              arguments: {to: ref('fct_licitacion'), field: codigo_externo}
 
   - name: fct_oferta
     description: Una fila por oferta de un proveedor a una línea de una licitación.

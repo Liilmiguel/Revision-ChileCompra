@@ -5,6 +5,8 @@ select
     l.codigo_externo,
     l.nombre,
     l.tipo,
+    coalesce(t.descripcion, 'Otro') as tipo_descripcion,
+    coalesce(t.orden, 99) as tipo_orden,
     l.tipo_adquisicion,
     l.codigo_organismo,
     l.nombre_organismo,
@@ -16,9 +18,14 @@ select
     e.es_final as estado_es_final,
     l.fuente_estado,
     l.fecha_publicacion,
+    date_trunc('month', l.fecha_publicacion)::date as mes_publicacion,
     l.fecha_cierre,
+    l.fecha_cierre - l.fecha_publicacion as dias_publicacion_cierre,
     -- FechaAdjudicacion solo es real si la licitación está adjudicada (Fase 0).
     case when e.estado_grupo = 'Adjudicada' then l.fecha_adjudicacion_bruta_actual end as fecha_adjudicacion,
+    case
+        when e.estado_grupo = 'Adjudicada' then l.fecha_adjudicacion_bruta_actual - l.fecha_cierre
+    end as dias_cierre_adjudicacion,
     l.moneda,
     l.monto_estimado,
     l.monto_estimado_visible,
@@ -42,4 +49,5 @@ select
     l.source_month
 from {{ ref('int_licitacion') }} l
 left join {{ ref('estado_licitacion') }} e on e.codigo_estado = l.codigo_estado_actual
+left join {{ ref('tipo_licitacion') }} t on t.tipo = l.tipo
 left join {{ ref('int_licitacion__ofertas') }} o using (codigo_externo)

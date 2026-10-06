@@ -6,23 +6,31 @@
 ) }}
 
 -- Una fila por línea del CSV masivo: oferta de un proveedor a un ítem de una licitación.
--- `materialized`: sin él PostgreSQL inlinea la vista y recalcula la fusión de jsonb
--- (l.data || f.data) por cada columna extraída: ~30 veces por fila.
-with filas as materialized (
-    select f.*
-    from {{ source('raw', 'bulk_fila_completa') }} f
-    -- Solo el mes elegido en stg_bulk__licitacion, para no duplicar si un código se repite.
-    join {{ ref('stg_bulk__licitacion') }} l using (codigo_externo, source_month)
+-- Se reconstruye la fila (cabecera de la licitación || diferencias de la fila) con
+-- LATERAL ... OFFSET 0: obliga a calcular la fusión de jsonb una vez por fila. Sin eso
+-- PostgreSQL la recalcula por cada columna extraída (~30 veces); un CTE `materialized`
+-- también lo evita, pero vuelca todas las filas a temporales (~16 GB con 33 meses).
+with filas as (
+    select f.source_month, f.row_num, f.codigo_externo, m.data, l.extracted_at
+    from {{ source('raw', 'bulk_fila') }} f
+    join {{ source('raw', 'bulk_licitacion') }} l using (source_month, codigo_externo)
+    cross join lateral (select l.data || f.data as data offset 0) m
+    -- Si un código aparece en más de un mes, solo el de la extracción más reciente
+    -- (la misma regla que stg_bulk__licitacion).
+    where not exists (
+        select 1 from {{ source('raw', 'bulk_licitacion') }} l2
+        where l2.codigo_externo = l.codigo_externo
+          and (l2.extracted_at, l2.source_month) > (l.extracted_at, l.source_month)
+    )
     {% if is_incremental() %}
     -- Solo los meses recargados desde la última corrida (backfill reemplaza meses completos).
-    where f.source_month in (
+    and f.source_month in (
         select source_month from {{ source('raw', 'bulk_licitacion') }}
         group by source_month
         having max(extracted_at) > (select coalesce(max(extracted_at), '-infinity') from {{ this }})
     )
     {% endif %}
 ),
-
 
 tipada as (
     select
@@ -47,7 +55,7 @@ tipada as (
         data ->> 'RazonSocialProveedor' as razon_social_proveedor,
         data ->> 'Nombre de la Oferta' as nombre_oferta,
         data ->> 'Estado Oferta' as estado_oferta,
-        m.codigo as moneda_oferta,
+        data ->> 'Moneda de la Oferta' as moneda_oferta_nombre,
         {{ to_num("data ->> 'MontoUnitarioOferta'") }} as monto_unitario_oferta,
         {{ to_num("data ->> 'Cantidad Ofertada'") }} as cantidad_ofertada,
         {{ to_num("data ->> 'Valor Total Ofertado'") }} as valor_total_ofertado,
@@ -58,15 +66,17 @@ tipada as (
         data ->> 'Oferta seleccionada' = 'Seleccionada' as es_seleccionada,
         extracted_at
     from filas
-    left join {{ ref('moneda') }} m on m.nombre = filas.data ->> 'Moneda de la Oferta'
 )
 
 select
-    *,
+    t.*,
+    -- Subconsulta escalar y no join: con un join el planificador estimaba mal las filas,
+    -- elegía un merge join y ordenaba cada fila con su jsonb (~16 GB de temporales).
+    (select m.codigo from {{ ref('moneda') }} m where m.nombre = t.moneda_oferta_nombre) as moneda_oferta,
     -- Cantidad adjudicada >100× lo ofertado y lo solicitado: casi siempre un monto escrito
     -- en el campo cantidad (p. ej. 287.165.982 unidades de un ítem solicitado 1 vez), que
     -- infla monto_linea_adjudicada a ~10^16 CLP. Ver docs/fase2_modelado.md.
     es_seleccionada
         and cantidad_adjudicada > 100 * greatest(coalesce(cantidad_ofertada, 0), coalesce(cantidad_solicitada, 0))
         as cantidad_adjudicada_atipica
-from tipada
+from tipada t

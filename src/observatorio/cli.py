@@ -1,4 +1,4 @@
-"""Línea de comandos: `observatorio {init-db,backfill,incremental,status}`."""
+"""Línea de comandos: `observatorio {init-db,backfill,incremental,status,snapshot}`."""
 
 from __future__ import annotations
 
@@ -29,6 +29,9 @@ def main(argv: list[str] | None = None) -> None:
 
     sub.add_parser("status", help="resumen de la bitácora de extracciones")
 
+    p_snap = sub.add_parser("snapshot", help="exporta los marts a Parquet para el dashboard")
+    p_snap.add_argument("--desde", default="2024-01-01", help="fecha de publicación mínima AAAA-MM-DD")
+
     args = parser.parse_args(argv)
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 
@@ -44,6 +47,11 @@ def main(argv: list[str] | None = None) -> None:
             days = pipeline.days_between(start, args.end or start)
             with MercadoPublicoClient(config.ticket()) as client:
                 _print(pipeline.incremental(conn, client, days, force=args.force))
+        elif args.command == "snapshot":
+            from observatorio import snapshot
+
+            counts = snapshot.export(conn, config.ROOT / "data" / "snapshot", args.desde)
+            _print({k: f"{v} filas" for k, v in counts.items()})
         elif args.command == "status":
             for source, ok, errors, last in pipeline.status(conn):
                 print(f"{source:12} {ok:5} cargados  {errors:3} errores  última: {last:%Y-%m-%d %H:%M}")

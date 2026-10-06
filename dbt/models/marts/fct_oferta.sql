@@ -22,11 +22,12 @@ select
     o.valor_total_ofertado,
     o.es_seleccionada,
     o.cantidad_adjudicada,
-    case when o.es_seleccionada and not o.cantidad_adjudicada_atipica then o.monto_linea_adjudicada end as monto_adjudicado,
-    o.cantidad_adjudicada_atipica,
+    case when o.es_seleccionada and a.motivo_atipico is null then o.monto_linea_adjudicada end as monto_adjudicado,
+    a.motivo_atipico,
     o.fecha_envio_oferta,
     l.codigo_organismo,
     l.fecha_publicacion,
     l.estado_grupo
 from {{ ref('stg_bulk__oferta') }} o
 join {{ ref('fct_licitacion') }} l using (codigo_externo)
+left join {{ ref('int_linea_adjudicada') }} a on a.source_month = o.source_month and a.row_num = o.row_num

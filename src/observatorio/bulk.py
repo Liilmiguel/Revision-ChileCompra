@@ -97,21 +97,48 @@ def download(month: str, target_dir: Path, client: httpx.Client | None = None) -
     return target
 
 
-def read_rows(zip_path: Path) -> Iterator[dict[str, str | None]]:
-    """Filas del CSV como dict columna → texto, con 'NA'/'' convertidos a None."""
+class DemasiadosMalformados(ValueError):
+    pass
+
+
+def read_rows(
+    zip_path: Path, stats: dict | None = None, max_malformados: float = 0.02
+) -> Iterator[dict[str, str | None]]:
+    """Filas del CSV como dict columna → texto, con 'NA'/'' convertidos a None.
+
+    Algunos archivos traen bytes dañados en origen (2026-3: `"P"DRO LAGOS`) que rompen
+    el entrecomillado; esos registros se descartan y se cuentan en `stats`."""
     with zipfile.ZipFile(zip_path) as z:
         names = [n for n in z.namelist() if n.lower().endswith(".csv")]
         if len(names) != 1:
             raise ValueError(f"{zip_path.name}: se esperaba un CSV, hay {names}")
         with z.open(names[0]) as raw:
-            yield from read_csv(io.TextIOWrapper(raw, encoding="latin-1", newline=""))
+            yield from read_csv(
+                io.TextIOWrapper(raw, encoding="latin-1", newline=""), stats=stats, max_malformados=max_malformados
+            )
 
 
-def read_csv(text: io.TextIOBase) -> Iterator[dict[str, str | None]]:
-    """`text` debe estar abierto como latin-1 con newline=''."""
+def read_csv(
+    text: io.TextIOBase, stats: dict | None = None, max_malformados: float = 0.0
+) -> Iterator[dict[str, str | None]]:
+    """`text` debe estar abierto como latin-1 con newline=''.
+
+    Un registro con un número de columnas distinto a la cabecera se descarta y se cuenta
+    en stats["malformados"]. Si al terminar superan `max_malformados` (fracción de los
+    registros), se lanza DemasiadosMalformados: con 0.0, cualquier registro malo falla."""
+    stats = stats if stats is not None else {}
+    stats.update(registros=0, malformados=0)
     reader = csv.reader(text, delimiter=";")
     header = [decode_field(col) for col in next(reader)]
     for values in reader:
+        stats["registros"] += 1
         if len(values) != len(header):
-            raise ValueError(f"fila con {len(values)} columnas, cabecera con {len(header)}")
+            stats["malformados"] += 1
+            if max_malformados == 0.0:
+                raise DemasiadosMalformados(f"registro con {len(values)} columnas, cabecera con {len(header)}")
+            continue
         yield {col: (None if val in NULLS else decode_field(val)) for col, val in zip(header, values, strict=True)}
+    if stats["registros"] and stats["malformados"] / stats["registros"] > max_malformados:
+        raise DemasiadosMalformados(
+            f"{stats['malformados']} de {stats['registros']} registros malformados (máximo {max_malformados:.0%})"
+        )

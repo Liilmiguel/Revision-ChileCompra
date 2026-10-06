@@ -42,7 +42,7 @@ def log_extraction(
 ) -> None:
     conn.execute(
         """insert into raw.extraction_log (source, key, status, rows, remote_version, error, started_at, finished_at)
-           values (%s, %s, %s, %s, %s, %s, coalesce(%s, now()), now())""",
+           values (%s, %s, %s, %s, %s, %s, coalesce(%s, clock_timestamp()), clock_timestamp())""",
         (source, key, status, rows, remote_version, error, started_at),
     )
     conn.commit()
@@ -50,12 +50,14 @@ def log_extraction(
 
 def last_ok(conn: psycopg.Connection, source: str, key: str) -> tuple[datetime, str | None] | None:
     """(finished_at, remote_version) de la última extracción exitosa, o None."""
-    return conn.execute(
+    row = conn.execute(
         """select finished_at, remote_version from raw.extraction_log
            where source = %s and key = %s and status = 'ok'
            order by finished_at desc limit 1""",
         (source, key),
     ).fetchone()
+    conn.commit()  # no dejar la conexión "idle in transaction" durante la descarga
+    return row
 
 
 def split_rows(

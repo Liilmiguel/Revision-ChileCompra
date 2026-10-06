@@ -8,6 +8,11 @@ macro-paths: ["macros"]
 test-paths: ["tests"]
 seed-paths: ["seeds"]
 
+vars:
+  # Valor aproximado de la UTM 2024–2026, solo para los topes de int_linea_adjudicada
+  # (umbral de 10×: insensible a la variación mensual).
+  utm_clp: 70000
+
 models:
   observatorio:
     staging:

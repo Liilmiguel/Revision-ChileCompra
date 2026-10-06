@@ -5,6 +5,9 @@ Pipeline de licitaciones de Mercado Público hacia PostgreSQL.
 - **Fase 0** (exploración): `docs/fase0_hallazgos.md`, scripts en `scripts/`.
 - **Fase 1** (ingesta a `raw`): este README y `docs/fase1_ingesta.md`.
 - **Fase 2** (modelado con dbt: staging → intermediate → marts): `docs/fase2_modelado.md`.
+- **Fase 3** (las 4 preguntas): definiciones en `docs/fase3_preguntas.md`, respuestas en
+  `docs/fase3_respuestas.md` (generadas por `analysis/responder.py`).
+- **Fase 4** (dashboard Streamlit sobre un snapshot Parquet): `dashboard/app.py`.
 
 ## Uso local
 
@@ -18,7 +21,10 @@ make up                       # PostgreSQL en localhost:5432
 make backfill FROM=2025-1     # descarga masiva mensual, hasta el mes actual
 make incremental              # detalles de la API de ayer, ~50 min por día hábil (DAY=2026-10-04 para otro día)
 make status                   # qué está cargado
-make dbt                      # modelos staging → marts y 36 tests de datos
+make dbt                      # modelos staging → marts y tests de datos
+make snapshot                 # exporta los marts a data/snapshot/*.parquet
+make analysis                 # reescribe docs/fase3_respuestas.md
+make dashboard                # http://localhost:8501
 make test lint
 ```
 
