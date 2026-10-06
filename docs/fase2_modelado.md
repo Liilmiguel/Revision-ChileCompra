@@ -43,8 +43,8 @@ make dbt-full   # reconstruye también la tabla incremental
    cantidad adjudicada supera a la ofertada. La mayoría es plausible (servicio ofertado
    como 1 unidad y adjudicado por 12 meses), pero algunas son un monto escrito en el campo
    cantidad: una línea solicitada 1 vez con 287.165.982 unidades adjudicadas vale
-   7,9×10¹⁶ CLP. Sumando sin filtro, el total adjudicado de 2016-6 da 88 millones de
-   millones de pesos; excluyendo las líneas con cantidad adjudicada >100× lo ofertado y lo
+   7,9×10¹⁶ CLP. Sumando sin filtro, el total adjudicado de 2016-6 da 8,8×10¹⁶ CLP (~88.300
+   billones de pesos); excluyendo las líneas con cantidad adjudicada >100× lo ofertado y lo
    solicitado (`cantidad_adjudicada_atipica`, 888 líneas en 5 meses) da 205 mil millones.
    `fct_licitacion.monto_adjudicado` las excluye; `monto_adjudicado_bruto` las incluye.
 2. **Quedan errores que la regla no detecta**: p. ej. un precio unitario que en realidad
