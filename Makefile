@@ -2,7 +2,7 @@ FROM ?= 2025-1
 TO ?=
 DAY ?=
 
-.PHONY: up down init backfill incremental status dbt dbt-full snapshot analysis dashboard test lint
+.PHONY: up down init backfill incremental status dbt dbt-full snapshot analysis dashboard web test lint
 
 up:  ## levanta PostgreSQL y espera a que acepte conexiones
 	docker compose up -d --wait db
@@ -36,6 +36,10 @@ analysis:  ## responde las 4 preguntas en docs/fase3_respuestas.md
 
 dashboard:  ## abre el dashboard en http://localhost:8501
 	uv run --group dashboard streamlit run dashboard/app.py
+
+web:  ## exporta data/web/ para la versión web (claude.ai) y verifica sus métricas contra Python
+	uv run --group dashboard python dashboard/web/exportar.py
+	uv run --group dashboard python dashboard/web/verificar.py
 
 test:
 	uv run pytest -q

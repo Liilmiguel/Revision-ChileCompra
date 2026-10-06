@@ -8,6 +8,9 @@ Pipeline de licitaciones de Mercado Público hacia PostgreSQL.
 - **Fase 3** (las 4 preguntas): definiciones en `docs/fase3_preguntas.md`, respuestas en
   `docs/fase3_respuestas.md` (generadas por `analysis/responder.py`).
 - **Fase 4** (dashboard Streamlit sobre un snapshot Parquet): `dashboard/app.py`.
+  Versión web estática (métricas en el navegador, mismas definiciones): `dashboard/web/`,
+  publicada en https://claude.ai/artifact/GrRmCFATYQQmaE7M9WtgWp. `make web` regenera
+  sus datos y verifica que las métricas en JavaScript coincidan con las de Python.
 
 ## Uso local
 

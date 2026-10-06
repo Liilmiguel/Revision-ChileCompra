@@ -1,0 +1,611 @@
+<title>Observatorio de Compras Públicas</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;500;600;750&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: barra de filtros fija arriba, pestañas por pregunta, cada panel abre con la respuesta escrita
+   y sigue con indicadores y gráficos. Paleta de datos validada para daltonismo (claro y oscuro). */
+:root {
+  --bg: #f6f6f3;
+  --surface: #fcfcfb;
+  --ink: #0b0b0b;
+  --ink2: #52514e;
+  --muted: #7a7873;
+  --grid: #e1e0d9;
+  --axis: #c3c2b7;
+  --line: rgba(11, 11, 11, .10);
+  --accent: #1f5fae;
+  --s1: #2a78d6;
+  --s2: #eb6834;
+  --s3: #1baf7a;
+  --s4: #eda100;
+  --chip: #e9eef6;
+  --warn-bg: #fff3dc;
+  --warn-ink: #6b4a00;
+  --font: "Public Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0d0d0d; --surface: #1a1a19; --ink: #ffffff; --ink2: #c3c2b7; --muted: #918f88;
+    --grid: #2c2c2a; --axis: #383835; --line: rgba(255, 255, 255, .10); --accent: #7fb0f0;
+    --s1: #3987e5; --s2: #d95926; --s3: #199e70; --s4: #c98500; --chip: #1f2a3a;
+    --warn-bg: #3a2c0c; --warn-ink: #f3d79a; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0d0d0d; --surface: #1a1a19; --ink: #ffffff; --ink2: #c3c2b7; --muted: #918f88;
+  --grid: #2c2c2a; --axis: #383835; --line: rgba(255, 255, 255, .10); --accent: #7fb0f0;
+  --s1: #3987e5; --s2: #d95926; --s3: #199e70; --s4: #c98500; --chip: #1f2a3a;
+  --warn-bg: #3a2c0c; --warn-ink: #f3d79a; color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body { background: var(--bg); color: var(--ink); font: 15px/1.5 var(--font); margin: 0; }
+.wrap { max-width: 1280px; margin: 0 auto; padding-inline: max(16px, 2.5vw); padding-block: 0 48px; }
+header.top { padding-block: 28px 8px; display: grid; gap: 4px; }
+.eyebrow { font: 500 12px/1.4 var(--mono); letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+h1 { font-size: clamp(26px, 3.4vw, 38px); line-height: 1.1; font-weight: 750; letter-spacing: -.02em; margin: 0; text-wrap: balance; }
+h2 { font-size: 22px; line-height: 1.25; font-weight: 700; margin: 0; text-wrap: balance; }
+h3 { font-size: 14px; font-weight: 650; margin: 0 0 6px; color: var(--ink); }
+.sub { color: var(--ink2); margin: 0; max-width: 72ch; }
+
+/* filtros */
+.filtros { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5; background: var(--bg);
+  border-bottom: 1px solid var(--line); padding-block: 12px; display: flex; flex-wrap: wrap; gap: 10px 12px; align-items: end; }
+.campo { display: grid; gap: 3px; min-width: 0; }
+.campo label { font: 500 11px/1 var(--mono); letter-spacing: .05em; text-transform: uppercase; color: var(--muted); }
+select, input[type="search"] { font: inherit; font-size: 14px; color: var(--ink); background: var(--surface);
+  border: 1px solid var(--line); border-radius: 6px; padding: 6px 8px; min-width: 0; max-width: 100%; }
+input[type="search"] { width: 260px; }
+select:focus-visible, input:focus-visible, button:focus-visible, a:focus-visible, summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+button { font: inherit; cursor: pointer; }
+.btn { font-size: 13px; border: 1px solid var(--line); background: var(--surface); color: var(--ink2); border-radius: 6px; padding: 6px 10px; }
+.btn:hover { color: var(--ink); border-color: var(--axis); }
+.estado { margin-left: auto; font: 500 12px/1.3 var(--mono); color: var(--muted); text-align: right; }
+.estado b { color: var(--ink); font-weight: 600; }
+
+/* pestañas */
+nav.tabs { display: flex; gap: 2px; overflow-x: auto; margin-block: 14px 18px; border-bottom: 1px solid var(--line); }
+nav.tabs button { border: 0; background: none; color: var(--ink2); padding: 10px 12px; font-size: 14px; font-weight: 550;
+  border-bottom: 2px solid transparent; white-space: nowrap; }
+nav.tabs button[aria-selected="true"] { color: var(--ink); border-bottom-color: var(--accent); }
+nav.tabs button .n { font: 500 11px var(--mono); color: var(--muted); margin-right: 4px; }
+
+section.panel { display: grid; gap: 18px; }
+[hidden], section.panel[hidden] { display: none !important; }
+.respuesta { background: var(--surface); border: 1px solid var(--line); border-left: 3px solid var(--accent);
+  border-radius: 8px; padding: 14px 16px; font-size: 16px; line-height: 1.55; max-width: 100ch; }
+.respuesta b { font-weight: 650; }
+.nota { font-size: 13px; color: var(--ink2); margin: 0; max-width: 100ch; }
+.aviso { background: var(--warn-bg); color: var(--warn-ink); border-radius: 6px; padding: 8px 12px; font-size: 13px; max-width: 100ch; }
+
+.kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 12px; }
+.kpi { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 12px 14px; min-width: 0; }
+.kpi .l { font-size: 12.5px; color: var(--ink2); }
+.kpi .v { font-size: 28px; font-weight: 650; letter-spacing: -.01em; line-height: 1.2; }
+.kpi .d { font: 12px var(--mono); color: var(--muted); }
+
+.cuatro { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+@media (max-width: 760px) { .cuatro { grid-template-columns: minmax(0, 1fr); } }
+.cuatro .respuesta { font-size: 15px; cursor: pointer; }
+.cuatro .respuesta:hover { border-color: var(--axis); }
+.cuatro .q { font: 500 11px var(--mono); letter-spacing: .05em; text-transform: uppercase; color: var(--muted); display: block; margin-bottom: 4px; }
+
+.grid2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 460px), 1fr)); gap: 16px; }
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 14px 14px 10px; min-width: 0; }
+.card .chart { position: relative; height: 300px; }
+.card .chart.alto { height: 460px; }
+.leyenda { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 12.5px; color: var(--ink2); margin: 0 0 6px; }
+.leyenda i { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 5px; vertical-align: -1px; }
+details { margin-top: 6px; }
+details summary { font-size: 12.5px; color: var(--ink2); cursor: pointer; }
+.tabla { overflow-x: auto; max-height: 420px; overflow-y: auto; border: 1px solid var(--line); border-radius: 6px; margin-top: 6px; }
+table { border-collapse: collapse; width: 100%; font-size: 13px; }
+th, td { padding: 6px 10px; text-align: left; border-bottom: 1px solid var(--line); vertical-align: top; }
+th { position: sticky; top: 0; background: var(--surface); font-weight: 600; color: var(--ink2); white-space: nowrap; }
+td.n, th.n { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+td.code { font-family: var(--mono); font-size: 12px; white-space: nowrap; }
+td a { color: var(--accent); }
+.seg { display: inline-flex; border: 1px solid var(--line); border-radius: 6px; overflow: hidden; }
+.seg button { border: 0; background: var(--surface); color: var(--ink2); padding: 5px 10px; font-size: 13px; }
+.seg button[aria-pressed="true"] { background: var(--chip); color: var(--ink); font-weight: 600; }
+.marca { display: inline-block; font: 500 11px var(--mono); padding: 1px 6px; border-radius: 4px; background: var(--chip); color: var(--ink); margin: 1px 2px 1px 0; white-space: nowrap; }
+.carga { font: 500 12px var(--mono); color: var(--muted); }
+.metodo { max-width: 78ch; display: grid; gap: 10px; }
+.metodo p, .metodo li { color: var(--ink2); }
+.metodo dt { font-weight: 650; margin-top: 8px; }
+.metodo dd { margin: 2px 0 0; color: var(--ink2); }
+footer { margin-top: 32px; font-size: 12.5px; color: var(--muted); }
+@media (max-width: 640px) {
+  .estado { margin-left: 0; text-align: left; width: 100%; }
+  input[type="search"] { width: 100%; }
+  .card .chart.alto { height: 380px; }
+}
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
+</style>
+
+<div class="wrap">
+  <header class="top">
+    <span class="eyebrow" id="periodo">Mercado Público · licitaciones 2024-01 a 2026-09</span>
+    <h1>Observatorio de Compras Públicas</h1>
+    <p class="sub">Competencia, precio, concentración y resultado de las licitaciones del Estado de Chile, a partir de la descarga masiva de ChileCompra.</p>
+  </header>
+
+  <div class="filtros" role="search" aria-label="Filtros">
+    <div class="campo"><label for="f-desde">Desde</label><select id="f-desde"></select></div>
+    <div class="campo"><label for="f-hasta">Hasta</label><select id="f-hasta"></select></div>
+    <div class="campo"><label for="f-tipo">Tipo de licitación</label><select id="f-tipo"><option value="">Todos</option></select></div>
+    <div class="campo"><label for="f-region">Región</label><select id="f-region"><option value="">Todas</option></select></div>
+    <div class="campo"><label for="f-sector">Sector</label><select id="f-sector"><option value="">Todos</option></select></div>
+    <div class="campo"><label for="f-org">Organismo comprador</label>
+      <input type="search" id="f-org" list="l-org" placeholder="Todos · escribe para buscar" autocomplete="off">
+      <datalist id="l-org"></datalist></div>
+    <button class="btn" id="limpiar" type="button">Limpiar filtros</button>
+    <div class="estado" id="estado" aria-live="polite"><span class="carga">Cargando datos…</span></div>
+  </div>
+
+  <nav class="tabs" role="tablist" aria-label="Secciones">
+    <button role="tab" data-tab="resumen" aria-selected="true">Resumen</button>
+    <button role="tab" data-tab="competencia"><span class="n">1</span>Competencia</button>
+    <button role="tab" data-tab="precio"><span class="n">2</span>Precio</button>
+    <button role="tab" data-tab="concentracion"><span class="n">3</span>Concentración</button>
+    <button role="tab" data-tab="proceso"><span class="n">4</span>Proceso</button>
+    <button role="tab" data-tab="alertas">Señales de alerta</button>
+    <button role="tab" data-tab="metodologia">Metodología</button>
+  </nav>
+
+  <!-- RESUMEN -->
+  <section class="panel" id="p-resumen" role="tabpanel">
+    <div class="kpis" id="k-resumen"></div>
+    <div class="cuatro" id="cuatro"></div>
+    <div class="card">
+      <h3>Licitaciones publicadas por mes</h3>
+      <div class="chart"><canvas id="c-mensual" aria-label="Licitaciones publicadas por mes"></canvas></div>
+      <p class="nota">Desde diciembre de 2024 se publican cerca de 40 % menos licitaciones al mes; coincide con la entrada en vigencia de la Ley 21.634. Los meses más recientes siguen en evaluación.</p>
+    </div>
+  </section>
+
+  <!-- 1 COMPETENCIA -->
+  <section class="panel" id="p-competencia" role="tabpanel" hidden>
+    <h2>¿Cuántas empresas compiten por cada licitación?</h2>
+    <div class="respuesta" id="r-competencia"></div>
+    <div class="kpis" id="k-competencia"></div>
+    <div class="grid2">
+      <div class="card"><h3>Licitaciones adjudicadas según número de oferentes</h3>
+        <div class="chart"><canvas id="c-dist"></canvas></div>
+        <details><summary>Ver datos</summary><div class="tabla" id="t-dist"></div></details></div>
+      <div class="card"><h3>% con oferente único, por mes de publicación</h3>
+        <div class="chart"><canvas id="c-unico-mes"></canvas></div>
+        <details><summary>Ver datos</summary><div class="tabla" id="t-unico-mes"></div></details></div>
+    </div>
+    <div class="card">
+      <div style="display:flex;flex-wrap:wrap;gap:8px 16px;align-items:center;justify-content:space-between">
+        <h3 id="h-comp-por">% con oferente único por tipo</h3>
+        <div class="seg" role="group" aria-label="Comparar por">
+          <button data-dim="tipo" aria-pressed="true">Tipo</button><button data-dim="sector" aria-pressed="false">Sector</button><button data-dim="region" aria-pressed="false">Región</button><button data-dim="org" aria-pressed="false">Organismo</button>
+        </div>
+      </div>
+      <div class="chart alto"><canvas id="c-comp-por"></canvas></div>
+      <details><summary>Ver todos los grupos</summary><div class="tabla" id="t-comp-por"></div></details>
+    </div>
+  </section>
+
+  <!-- 2 PRECIO -->
+  <section class="panel" id="p-precio" role="tabpanel" hidden>
+    <h2>¿Se adjudica por sobre o por debajo de lo estimado?</h2>
+    <div class="respuesta" id="r-precio"></div>
+    <p class="nota" id="n-precio"></p>
+    <div class="kpis" id="k-precio"></div>
+    <div class="grid2">
+      <div class="card"><h3>Distribución de adjudicado / estimado</h3>
+        <p class="leyenda"><span><i style="background:var(--s1)"></i>Hasta lo estimado</span><span><i style="background:var(--s2)"></i>Sobre lo estimado</span></p>
+        <div class="chart"><canvas id="c-hist"></canvas></div>
+        <details><summary>Ver datos</summary><div class="tabla" id="t-hist"></div></details></div>
+      <div class="card"><h3>Adjudicado / estimado según número de oferentes</h3>
+        <p class="leyenda"><span><i style="background:var(--s1)"></i>Mediana</span><span><i style="background:var(--axis)"></i>Rango intercuartil (p25–p75)</span></p>
+        <div class="chart"><canvas id="c-precio-comp"></canvas></div>
+        <details><summary>Ver datos</summary><div class="tabla" id="t-precio-comp"></div></details></div>
+    </div>
+    <div class="card"><h3>Mediana adjudicado / estimado por tipo de licitación</h3>
+      <div class="chart"><canvas id="c-precio-tipo"></canvas></div>
+      <details><summary>Ver datos</summary><div class="tabla" id="t-precio-tipo"></div></details></div>
+  </section>
+
+  <!-- 3 CONCENTRACIÓN -->
+  <section class="panel" id="p-concentracion" role="tabpanel" hidden>
+    <h2>¿Cuán concentradas están las compras en pocos proveedores?</h2>
+    <div class="respuesta" id="r-concentracion"></div>
+    <div class="kpis" id="k-concentracion"></div>
+    <div class="grid2">
+      <div class="card"><h3>Concentración por organismo (HHI)</h3>
+        <p class="nota">Cada punto es un organismo con al menos 30 licitaciones adjudicadas. Sobre la línea, concentración alta.</p>
+        <div class="chart alto"><canvas id="c-hhi"></canvas></div></div>
+      <div class="card"><h3>15 mayores proveedores (% del monto en CLP)</h3>
+        <div class="chart alto"><canvas id="c-top"></canvas></div>
+        <details><summary>Ver los 200 mayores</summary><div class="tabla" id="t-top"></div></details></div>
+    </div>
+    <div class="card"><h3>Organismos más concentrados</h3>
+      <div class="tabla" id="t-orgs"></div></div>
+  </section>
+
+  <!-- 4 PROCESO -->
+  <section class="panel" id="p-proceso" role="tabpanel" hidden>
+    <h2>¿Cuántas licitaciones fracasan y cuánto demoran?</h2>
+    <div class="respuesta" id="r-proceso"></div>
+    <div class="kpis" id="k-proceso"></div>
+    <div class="grid2">
+      <div class="card"><h3>Resultado según tipo de licitación</h3>
+        <p class="leyenda"><span><i style="background:var(--s1)"></i>Adjudicada</span><span><i style="background:var(--s2)"></i>Desierta</span><span><i style="background:var(--s3)"></i>Revocada</span><span><i style="background:var(--s4)"></i>Sin resolver</span></p>
+        <div class="chart alto"><canvas id="c-resultado"></canvas></div>
+        <details><summary>Ver datos</summary><div class="tabla" id="t-resultado"></div></details></div>
+      <div class="card"><h3>Días del cierre a la adjudicación (mediana)</h3>
+        <div class="chart alto"><canvas id="c-dias-tipo"></canvas></div></div>
+    </div>
+    <div class="card"><h3>Días del cierre a la adjudicación (mediana), por mes de publicación</h3>
+      <div class="chart"><canvas id="c-dias-mes"></canvas></div>
+      <p class="nota">Los meses recientes se ven más rápidos porque solo incluyen las licitaciones que ya se adjudicaron.</p></div>
+  </section>
+
+  <!-- ALERTAS -->
+  <section class="panel" id="p-alertas" role="tabpanel" hidden>
+    <h2>Señales de alerta</h2>
+    <p class="sub">Licitaciones adjudicadas con <b>oferente único</b>, <b>adjudicadas más de 20 % sobre lo estimado</b> o con <b>plazo de ofertas en el 10 % más corto de su tipo</b>. Una señal no prueba una irregularidad: indica dónde vale la pena revisar el expediente.</p>
+    <div class="kpis" id="k-alertas"></div>
+    <div class="card"><h3 id="h-alertas">Licitaciones con 2 o 3 señales</h3>
+      <div class="tabla" id="t-alertas" style="max-height:560px"></div></div>
+  </section>
+
+  <!-- METODOLOGÍA -->
+  <section class="panel" id="p-metodologia" role="tabpanel" hidden>
+    <div class="metodo">
+      <h2>Metodología</h2>
+      <p>Datos: descarga masiva mensual de Mercado Público (licitaciones publicadas desde enero de 2024), con el estado más reciente entre esa descarga y la API de ChileCompra. Las cifras se calculan en tu navegador con las mismas definiciones del análisis escrito del proyecto.</p>
+      <dl>
+        <dt>Adjudicada</dt><dd>Estados 8, 9 y 10 de ChileCompra.</dd>
+        <dt>Oferentes</dt><dd>Proveedores distintos con oferta en la licitación. Se excluyen las adjudicadas sin ofertas registradas.</dd>
+        <dt>Adjudicado / estimado</dt><dd>Suma de las líneas adjudicadas dividida por el monto estimado, cuando ambos están en la misma moneda. Se excluyen las razones bajo 10 %: casi siempre convenios de suministro adjudicados por precio unitario, donde la razón no mide precio.</dd>
+        <dt>Montos atípicos</dt><dd>Se excluyen líneas con errores de captura: cantidad adjudicada más de 100 veces lo ofertado; línea que vale más de 10 veces el tope legal de su tipo (L1 menos de 100 UTM, LE menos de 1.000 UTM, etc.); o más de 10 veces un estimado creíble. Solo 39 líneas sumaban cerca de un cuarto del monto del periodo.</dd>
+        <dt>HHI</dt><dd>Índice Herfindahl-Hirschman: suma de los cuadrados de la participación de cada proveedor en el monto en CLP de un organismo (0 a 10.000). Sobre 2.500, concentración alta.</dd>
+        <dt>Licitaciones maduras</dt><dd>Para la pregunta 4 solo cuentan las cerradas hace más de 120 días, para que las que aún pueden adjudicarse no inflen las tasas de fracaso.</dd>
+      </dl>
+      <h3>Limitaciones</h3>
+      <ul>
+        <li>Los montos no se convierten de moneda; las sumas usan solo pesos (cerca del 99 % de las ofertas).</li>
+        <li>En los convenios de suministro el monto adjudicado es un precio unitario y subestima el contrato.</li>
+        <li>Hay errores de captura que ninguna regla detecta; revisa la ficha antes de citar un monto puntual.</li>
+        <li>El archivo de marzo de 2026 viene dañado en origen (0,5 % de sus registros descartados).</li>
+        <li>Solo licitaciones: no incluye órdenes de compra, convenio marco ni trato directo.</li>
+      </ul>
+    </div>
+  </section>
+
+  <footer id="pie"></footer>
+</div>
+
+<script src="chart.umd.js"></script>
+<script src="metricas.js"></script>
+<script>
+"use strict";
+// Cifras sin filtro calculadas al exportar: la página se ve completa antes de que carguen los datos.
+const INIT = /*INIT*/null;
+
+const fmt = new Intl.NumberFormat("es-CL", { maximumFractionDigits: 0 });
+const fmt1 = new Intl.NumberFormat("es-CL", { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+const num = (x, d = 0) => (x == null || Number.isNaN(x) ? "—" : d ? fmt1.format(x) : fmt.format(x));
+const pct = (x, d = 1) => (x == null || Number.isNaN(x) ? "—" : (100 * x).toLocaleString("es-CL", { minimumFractionDigits: d, maximumFractionDigits: d }) + " %");
+const clp = (x) => {
+  if (x == null || Number.isNaN(x)) return "—";
+  for (const [div, suf] of [[1e12, " billones"], [1e9, " mil millones"], [1e6, " millones"]])
+    if (Math.abs(x) >= div) return "$ " + fmt1.format(x / div) + suf;
+  return "$ " + fmt.format(x);
+};
+const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+const $ = (id) => document.getElementById(id);
+
+let D = null, CAT = null, ALERTAS = null, META = null, MESES = [];
+const estado = { tab: "resumen", dim: "tipo", f: null };
+
+// ---------- pestañas (con #ancla)
+const TABS = ["resumen", "competencia", "precio", "concentracion", "proceso", "alertas", "metodologia"];
+function mostrar(tab) {
+  if (!TABS.includes(tab)) tab = "resumen";
+  estado.tab = tab;
+  for (const b of document.querySelectorAll("nav.tabs button")) b.setAttribute("aria-selected", b.dataset.tab === tab);
+  for (const t of TABS) $("p-" + t).hidden = t !== tab;
+  try { history.replaceState(null, "", "#" + tab); } catch (e) { /* sin historial */ }
+  render();
+}
+document.querySelectorAll("nav.tabs button").forEach((b) => b.addEventListener("click", () => mostrar(b.dataset.tab)));
+
+// ---------- tema para Chart.js (lee los tokens CSS)
+function tema() {
+  const cs = getComputedStyle(document.documentElement);
+  const v = (n) => cs.getPropertyValue(n).trim();
+  return { s1: v("--s1"), s2: v("--s2"), s3: v("--s3"), s4: v("--s4"), ink: v("--ink"), ink2: v("--ink2"), muted: v("--muted"), grid: v("--grid"), axis: v("--axis"), surface: v("--surface"), font: v("--font") };
+}
+const charts = {};
+function chart(id, config) {
+  const T = tema();
+  Chart.defaults.font.family = T.font;
+  Chart.defaults.color = T.ink2;
+  Chart.defaults.borderColor = T.grid;
+  if (charts[id]) charts[id].destroy();
+  config.options = Object.assign({ responsive: true, maintainAspectRatio: false, animation: false, plugins: {} }, config.options);
+  config.options.plugins = Object.assign({ legend: { display: false }, tooltip: { backgroundColor: T.surface, titleColor: T.ink, bodyColor: T.ink2, borderColor: T.axis, borderWidth: 1, padding: 10 } }, config.options.plugins);
+  charts[id] = new Chart($(id), config);
+}
+const ejes = (T, x = {}, y = {}) => ({
+  x: Object.assign({ grid: { color: T.grid }, border: { color: T.axis }, ticks: { color: T.muted } }, x),
+  y: Object.assign({ grid: { color: T.grid }, border: { color: T.axis }, ticks: { color: T.muted } }, y),
+});
+const pctTick = { callback: (v) => Math.round(v * 100) + " %" };
+const recorta = (s, n = 34) => (s.length > n ? s.slice(0, n - 1) + "…" : s);
+
+function tabla(id, cols, filas) {
+  const head = "<tr>" + cols.map((c) => `<th class="${c.n ? "n" : ""}">${esc(c.t)}</th>`).join("") + "</tr>";
+  const body = filas.map((f) => "<tr>" + cols.map((c) => `<td class="${c.n ? "n" : c.code ? "code" : ""}">${c.html ? c.v(f) : esc(c.v(f))}</td>`).join("") + "</tr>").join("");
+  $(id).innerHTML = `<table><thead>${head}</thead><tbody>${body}</tbody></table>`;
+}
+function kpis(id, items) {
+  $(id).innerHTML = items.map(([l, v, d]) => `<div class="kpi"><div class="l">${esc(l)}</div><div class="v">${v}</div>${d ? `<div class="d">${d}</div>` : ""}</div>`).join("");
+}
+
+// ---------- textos de respuesta (compartidos por el resumen y las pestañas)
+const textos = {
+  competencia: (c) => `En <b>${pct(c.pct_unico)}</b> de las licitaciones adjudicadas ofertó <b>una sola empresa</b>; la mediana es de ${num(c.mediana_oferentes)} oferentes.`,
+  precio: (p) => `La mediana adjudica <b>${pct(p.mediana, 0)} del monto estimado</b>; ${pct(p.pct_sobre)} se adjudica por sobre lo estimado y ${pct(p.pct_sobre_20)} lo supera en más de 20&nbsp;%.`,
+  concentracion: (k) => `${pct(k.kpis.pct_alta, 0)} de los organismos con al menos 30 licitaciones adjudicadas tiene sus compras <b>altamente concentradas</b> (HHI&nbsp;&gt;&nbsp;2.500); en la mediana, su principal proveedor se lleva ${pct(k.kpis.mediana_share_top, 0)} del monto.`,
+  proceso: (pr) => `De las licitaciones cerradas hace más de 120 días, <b>${pct(pr.pct_desierta)} quedó desierta</b> y ${pct(pr.pct_revocada)} fue revocada. Adjudicar toma una mediana de ${num(pr.mediana_dias_adjudicar)} días desde el cierre.`,
+};
+
+function renderResumen(r, c, p, k, pr) {
+  kpis("k-resumen", [
+    ["Licitaciones publicadas", num(r.n)],
+    ["Adjudicadas", num(r.adjudicadas)],
+    ["Monto adjudicado (CLP)", clp(r.monto_clp)],
+    ["Organismos compradores", num(r.organismos)],
+    ["Proveedores con adjudicación en CLP", num(r.proveedores)],
+  ]);
+  const card = (tab, n, q, html) => `<div class="respuesta" role="button" tabindex="0" data-ir="${tab}"><span class="q">${n} · ${q}</span>${html}</div>`;
+  $("cuatro").innerHTML = [
+    card("competencia", 1, "Competencia", textos.competencia(c)),
+    card("precio", 2, "Precio", textos.precio(p)),
+    card("concentracion", 3, "Concentración", textos.concentracion(k)),
+    card("proceso", 4, "Proceso", textos.proceso(pr)),
+  ].join("");
+  $("cuatro").querySelectorAll("[data-ir]").forEach((el) => {
+    el.addEventListener("click", () => mostrar(el.dataset.ir));
+    el.addEventListener("keydown", (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); mostrar(el.dataset.ir); } });
+  });
+}
+
+// Primera vista con las cifras exportadas (sin filtros).
+if (INIT) renderResumen(INIT.resumen, INIT.competencia, INIT.precio, INIT.concentracion, INIT.proceso);
+
+// ---------- filtros
+function leerFiltros() {
+  const v = (id) => ($(id).value === "" ? null : Number($(id).value));
+  const orgTxt = $("f-org").value.trim();
+  let org = null;
+  if (orgTxt) {
+    const i = CAT.organismos.findIndex(([, n]) => n === orgTxt);
+    org = i >= 0 ? i : -1; // -1: texto que no calza → sin resultados
+  }
+  let desde = Number($("f-desde").value), hasta = Number($("f-hasta").value);
+  if (desde > hasta) [desde, hasta] = [hasta, desde];
+  return { desde, hasta, tipo: v("f-tipo"), region: v("f-region"), sector: v("f-sector"), org };
+}
+
+let cache = { key: null };
+function calcular() {
+  const f = estado.f;
+  const key = JSON.stringify(f);
+  if (cache.key === key) return cache;
+  const mk = Metricas.mascara(D, f);
+  const nM = MESES.length;
+  cache = {
+    key, mk,
+    r: Metricas.resumen(D, mk),
+    m: Metricas.mensual(D, mk, nM),
+    c: Metricas.competencia(D, mk, nM),
+    p: Metricas.precio(D, mk),
+    k: Metricas.concentracion(D, mk, CAT.proveedores),
+    pr: Metricas.proceso(D, mk, nM),
+    a: Metricas.alertasResumen(D, mk),
+    comp: {},
+  };
+  return cache;
+}
+
+function nombreGrupo(dim, g) {
+  if (dim === "tipo") return g;
+  if (dim === "org") return CAT.organismos[g][1];
+  if (dim === "region") return CAT.regiones[g - 1].trim();
+  return CAT.sectores[g - 1];
+}
+
+function render() {
+  if (!D) return;
+  const X = calcular();
+  const T = tema();
+  const meses = MESES.slice(estado.f.desde, estado.f.hasta + 1);
+  const rango = (arr) => arr.slice(estado.f.desde, estado.f.hasta + 1);
+  $("estado").innerHTML = `<b>${num(X.r.n)}</b> licitaciones en el filtro<br>corte ${esc(META.corte_datos?.slice(0, 10) ?? META.corte)}`;
+  const tab = estado.tab;
+
+  if (tab === "resumen") {
+    renderResumen(X.r, X.c, X.p, X.k, X.pr);
+    chart("c-mensual", { type: "bar", data: { labels: meses, datasets: [{ data: rango(X.m.pub), backgroundColor: T.s1, borderRadius: 3, maxBarThickness: 28 }] },
+      options: { scales: ejes(T, { grid: { display: false } }), plugins: { tooltip: { callbacks: { label: (c) => num(c.raw) + " licitaciones" } } } } });
+  }
+
+  if (tab === "competencia") {
+    const c = X.c;
+    $("r-competencia").innerHTML = `De ${num(c.n)} licitaciones adjudicadas con ofertas registradas, ${textos.competencia(c).replace("En ", "en ")} Un oferente único no implica irregularidad, pero elimina la presión competitiva sobre el precio (ver pregunta 2).`;
+    kpis("k-competencia", [["Con oferente único", pct(c.pct_unico)], ["Mediana de oferentes", num(c.mediana_oferentes)], ["Promedio de oferentes", num(c.media_oferentes, 1)], ["Adjudicadas analizadas", num(c.n)]]);
+    const labs = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "10+"];
+    chart("c-dist", { type: "bar", data: { labels: labs, datasets: [{ data: c.dist, backgroundColor: labs.map((l) => (l === "1" ? T.s2 : T.s1)), borderRadius: 3 }] },
+      options: { scales: ejes(T, { title: { display: true, text: "Oferentes", color: T.muted }, grid: { display: false } }), plugins: { tooltip: { callbacks: { title: (i) => i[0].label + " oferente(s)", label: (x) => num(x.raw) + " licitaciones" } } } } });
+    tabla("t-dist", [{ t: "Oferentes", v: (f) => f[0] }, { t: "Licitaciones", v: (f) => num(f[1]), n: 1 }], labs.map((l, i) => [l, c.dist[i]]));
+    const mu = rango(c.mensual), mn = rango(c.mensual_n);
+    chart("c-unico-mes", { type: "line", data: { labels: meses, datasets: [{ data: mu, borderColor: T.s2, backgroundColor: T.s2, borderWidth: 2, pointRadius: 3, spanGaps: true }] },
+      options: { scales: ejes(T, { grid: { display: false } }, { beginAtZero: true, ticks: Object.assign({ color: T.muted }, pctTick) }), plugins: { tooltip: { callbacks: { label: (x) => `${pct(x.raw)} (n = ${num(mn[x.dataIndex])})` } } } } });
+    tabla("t-unico-mes", [{ t: "Mes", v: (f) => f[0] }, { t: "% oferente único", v: (f) => pct(f[1]), n: 1 }, { t: "Adjudicadas", v: (f) => num(f[2]), n: 1 }], meses.map((m, i) => [m, mu[i], mn[i]]));
+    const dim = estado.dim;
+    if (!X.comp[dim]) X.comp[dim] = Metricas.competenciaPor(D, X.mk, dim, D.k.MIN_GRUPO);
+    const g = X.comp[dim];
+    const top = g.slice(0, 20);
+    $("h-comp-por").textContent = `% con oferente único por ${{ tipo: "tipo", sector: "sector", region: "región", org: "organismo (20 más altos)" }[dim]} · grupos con ≥ 30 adjudicadas`;
+    chart("c-comp-por", { type: "bar", data: { labels: top.map((x) => recorta(nombreGrupo(dim, x.grupo), 42)), datasets: [{ data: top.map((x) => x.pct_unico), backgroundColor: T.s2, borderRadius: 3, maxBarThickness: 18 }] },
+      options: { indexAxis: "y", scales: ejes(T, { ticks: Object.assign({ color: T.muted }, pctTick), beginAtZero: true }, { grid: { display: false }, ticks: { color: T.ink2, autoSkip: false } }),
+        plugins: { tooltip: { callbacks: { title: (i) => nombreGrupo(dim, top[i[0].dataIndex].grupo), label: (x) => `${pct(x.raw)} · n = ${num(top[x.dataIndex].n)} · mediana ${num(top[x.dataIndex].mediana)} oferentes` } } } } });
+    tabla("t-comp-por", [{ t: "Grupo", v: (x) => nombreGrupo(dim, x.grupo) }, { t: "Adjudicadas", v: (x) => num(x.n), n: 1 }, { t: "% oferente único", v: (x) => pct(x.pct_unico), n: 1 }, { t: "Mediana oferentes", v: (x) => num(x.mediana), n: 1 }], g);
+  }
+
+  if (tab === "precio") {
+    const p = X.p;
+    const uno = p.comp.find((x) => x.oferentes === 1);
+    const cinco = p.comp.filter((x) => x.oferentes >= 5).map((x) => x.mediana).sort((a, b) => a - b);
+    const med5 = cinco.length ? Metricas.cuantil(cinco, 0.5) : null;
+    const frase = uno && med5 != null ? ` Con <b>un oferente</b> la mediana es ${pct(uno.mediana, 0)} del estimado; con <b>5 o más</b>, ${pct(med5, 0)}: más competencia, menor precio relativo.` : "";
+    $("r-precio").innerHTML = `En ${num(p.n)} licitaciones con monto estimado y adjudicado en la misma moneda, ${textos.precio(p).replace("La mediana", "la mediana")}${frase}`;
+    $("n-precio").textContent = `Se excluye el ${pct(p.pct_precio_unitario)} de las adjudicadas cuya razón es menor a 10 %: casi siempre convenios de suministro adjudicados por precio unitario (por ejemplo, fotocopias a $15 con un estimado de $28 millones), donde la razón no mide precio.`;
+    kpis("k-precio", [["Mediana adjudicado / estimado", pct(p.mediana, 0)], ["Sobre lo estimado", pct(p.pct_sobre)], ["Más de 20 % sobre", pct(p.pct_sobre_20)], ["Excluidas (precio unitario)", pct(p.pct_precio_unitario)]]);
+    const bins = p.hist.map((n, i) => ({ desde: i / 10, n })).filter((b) => b.desde >= 0.1);
+    const lab = (b) => (b.desde >= 2 ? "≥ 200 %" : `${Math.round(b.desde * 100)}–${Math.round(b.desde * 100) + 10} %`);
+    chart("c-hist", { type: "bar", data: { labels: bins.map(lab), datasets: [{ data: bins.map((b) => b.n), backgroundColor: bins.map((b) => (b.desde >= 1 ? T.s2 : T.s1)), borderRadius: 3, categoryPercentage: 0.92, barPercentage: 0.92 }] },
+      options: { scales: ejes(T, { grid: { display: false }, ticks: { color: T.muted, maxRotation: 0, autoSkip: true, maxTicksLimit: 8 } }), plugins: { tooltip: { callbacks: { label: (x) => num(x.raw) + " licitaciones" } } } } });
+    tabla("t-hist", [{ t: "Adjudicado / estimado", v: lab }, { t: "Licitaciones", v: (b) => num(b.n), n: 1 }], bins);
+    chart("c-precio-comp", { data: { labels: p.comp.map((x) => (x.oferentes === 10 ? "10+" : String(x.oferentes))), datasets: [
+        { type: "line", data: p.comp.map((x) => x.mediana), borderColor: T.s1, backgroundColor: T.s1, borderWidth: 2, pointRadius: 4, order: 0 },
+        { type: "bar", data: p.comp.map((x) => [x.p25, x.p75]), backgroundColor: T.axis, borderRadius: 3, barPercentage: 0.35, order: 1 } ] },
+      options: { scales: ejes(T, { title: { display: true, text: "Oferentes", color: T.muted }, grid: { display: false } }, { ticks: Object.assign({ color: T.muted }, pctTick) }),
+        plugins: { tooltip: { callbacks: { label: (x) => { const r = p.comp[x.dataIndex]; return x.dataset.type === "line" ? `mediana ${pct(r.mediana, 0)} · n = ${num(r.n)}` : `p25 ${pct(r.p25, 0)} – p75 ${pct(r.p75, 0)}`; } } } } } });
+    tabla("t-precio-comp", [{ t: "Oferentes", v: (x) => (x.oferentes === 10 ? "10 o más" : x.oferentes) }, { t: "Licitaciones", v: (x) => num(x.n), n: 1 }, { t: "Mediana", v: (x) => pct(x.mediana, 0), n: 1 }, { t: "p25", v: (x) => pct(x.p25, 0), n: 1 }, { t: "p75", v: (x) => pct(x.p75, 0), n: 1 }], p.comp);
+    chart("c-precio-tipo", { type: "bar", data: { labels: p.tipos.map((x) => recorta(x.grupo, 28)), datasets: [{ data: p.tipos.map((x) => x.mediana), backgroundColor: T.s1, borderRadius: 3, maxBarThickness: 36 }] },
+      options: { scales: ejes(T, { grid: { display: false }, ticks: { color: T.muted, maxRotation: 45, autoSkip: false } }, { beginAtZero: true, ticks: Object.assign({ color: T.muted }, pctTick) }),
+        plugins: { tooltip: { callbacks: { title: (i) => p.tipos[i[0].dataIndex].grupo, label: (x) => `mediana ${pct(x.raw, 0)} · ${pct(p.tipos[x.dataIndex].pct_sobre)} sobre lo estimado · n = ${num(p.tipos[x.dataIndex].n)}` } } } } });
+    tabla("t-precio-tipo", [{ t: "Tipo", v: (x) => x.grupo }, { t: "Licitaciones", v: (x) => num(x.n), n: 1 }, { t: "Mediana", v: (x) => pct(x.mediana, 0), n: 1 }, { t: "% sobre estimado", v: (x) => pct(x.pct_sobre), n: 1 }], p.tipos);
+  }
+
+  if (tab === "concentracion") {
+    const k = X.k;
+    $("r-concentracion").innerHTML = k.kpis.n
+      ? `A nivel país el mercado está repartido: los 10 mayores proveedores suman ${pct(k.mercado.share_top10)} del monto adjudicado en CLP entre ${num(k.mercado.proveedores)} proveedores. Pero <b>dentro de cada organismo</b> la historia cambia: ${pct(k.kpis.pct_alta, 0)} de los ${num(k.kpis.n)} organismos analizados tiene concentración alta (HHI&nbsp;&gt;&nbsp;2.500) y, en la mediana, su principal proveedor se lleva ${pct(k.kpis.mediana_share_top, 0)} del monto.`
+      : `Con estos filtros ningún organismo llega a 30 licitaciones adjudicadas, el mínimo para medir concentración. Entre ${num(k.mercado.proveedores)} proveedores, los 10 mayores suman ${pct(k.mercado.share_top10)} del monto en CLP.`;
+    kpis("k-concentracion", [["Top 10 proveedores", pct(k.mercado.share_top10)], ["Top 1 % de proveedores", pct(k.mercado.share_top1pct)], ["Organismos con HHI > 2.500", pct(k.kpis.pct_alta, 0)], ["Mediana participación del principal", pct(k.kpis.mediana_share_top, 0)]]);
+    const orgs = k.orgs;
+    chart("c-hhi", { type: "scatter", data: { datasets: [
+        { data: orgs.map((o) => ({ x: o.n_lic, y: o.hhi })), backgroundColor: T.s1 + "c0", borderColor: T.surface, borderWidth: 1, pointRadius: 4, pointHoverRadius: 6 },
+        { type: "line", data: [{ x: 30, y: 2500 }, { x: Math.max(31, ...orgs.map((o) => o.n_lic)), y: 2500 }], borderColor: T.muted, borderWidth: 1, pointRadius: 0 } ] },
+      options: { scales: ejes(T, { type: "logarithmic", title: { display: true, text: "Licitaciones adjudicadas (escala log)", color: T.muted }, ticks: { color: T.muted, callback: (v) => ([30, 100, 300, 1000, 3000].includes(v) ? num(v) : "") } },
+        { min: 0, max: 10000, title: { display: true, text: "HHI", color: T.muted }, ticks: { color: T.muted, callback: (v) => num(v) } }),
+        plugins: { tooltip: { filter: (x) => x.datasetIndex === 0, callbacks: { title: (i) => CAT.organismos[orgs[i[0].dataIndex].org][1], label: (x) => { const o = orgs[x.dataIndex]; return [`HHI ${num(o.hhi)} · ${num(o.n_lic)} licitaciones`, `Principal: ${o.proveedor_top} (${pct(o.share_top, 0)})`]; } } } } } });
+    const top = k.top.slice(0, 15);
+    chart("c-top", { type: "bar", data: { labels: top.map((x) => recorta(x.nombre, 30)), datasets: [{ data: top.map((x) => x.share), backgroundColor: T.s1, borderRadius: 3, maxBarThickness: 18 }] },
+      options: { indexAxis: "y", scales: ejes(T, { beginAtZero: true, ticks: { color: T.muted, maxTicksLimit: 4, callback: (v) => (v * 100).toLocaleString("es-CL", { maximumFractionDigits: 1 }) + " %" } }, { grid: { display: false }, ticks: { color: T.ink2, autoSkip: false } }),
+        plugins: { tooltip: { callbacks: { title: (i) => top[i[0].dataIndex].nombre, label: (x) => { const r = top[x.dataIndex]; return [`${clp(r.monto)} · ${pct(r.share, 2)} del monto`, `${num(r.lics)} licitaciones · ${num(r.orgs)} organismos`]; } } } } } });
+    tabla("t-top", [{ t: "Proveedor", v: (x) => x.nombre }, { t: "RUT", v: (x) => x.rut, code: 1 }, { t: "Monto CLP", v: (x) => clp(x.monto), n: 1 }, { t: "% del monto", v: (x) => pct(x.share, 2), n: 1 }, { t: "Licitaciones", v: (x) => num(x.lics), n: 1 }, { t: "Organismos", v: (x) => num(x.orgs), n: 1 }], k.top);
+    tabla("t-orgs", [{ t: "Organismo", v: (o) => CAT.organismos[o.org][1] }, { t: "HHI", v: (o) => num(o.hhi), n: 1 }, { t: "Principal proveedor", v: (o) => o.proveedor_top }, { t: "Su participación", v: (o) => pct(o.share_top, 0), n: 1 }, { t: "Proveedores", v: (o) => num(o.n_proveedores), n: 1 }, { t: "Licitaciones", v: (o) => num(o.n_lic), n: 1 }, { t: "Monto CLP", v: (o) => clp(o.monto_total), n: 1 }], orgs.slice(0, 100));
+  }
+
+  if (tab === "proceso") {
+    const pr = X.pr;
+    $("r-proceso").innerHTML = `Entre las ${num(pr.n)} licitaciones cerradas hace más de 120 días, ${pct(pr.pct_adjudicada)} se adjudicó, <b>${pct(pr.pct_desierta)} quedó desierta</b>, ${pct(pr.pct_revocada)} fue revocada y ${pct(pr.pct_sin_resolver)} sigue sin resolución en los datos. La recepción de ofertas dura una mediana de ${num(pr.mediana_dias_oferta)} días y adjudicar toma ${num(pr.mediana_dias_adjudicar)} días más.`;
+    kpis("k-proceso", [["Adjudicadas", pct(pr.pct_adjudicada)], ["Desiertas", pct(pr.pct_desierta)], ["Días para ofertar (mediana)", num(pr.mediana_dias_oferta)], ["Días para adjudicar (mediana)", num(pr.mediana_dias_adjudicar)]]);
+    const t = pr.tipos;
+    const serie = (col, color, label) => ({ label, data: t.map((x) => x[col]), backgroundColor: color, borderColor: T.surface, borderWidth: { right: 2 }, borderSkipped: false });
+    chart("c-resultado", { type: "bar", data: { labels: t.map((x) => recorta(x.grupo, 30)), datasets: [serie("adjudicada", T.s1, "Adjudicada"), serie("desierta", T.s2, "Desierta"), serie("revocada", T.s3, "Revocada"), serie("sin_resolver", T.s4, "Sin resolver")] },
+      options: { indexAxis: "y", scales: ejes(T, { stacked: true, max: 1, ticks: Object.assign({ color: T.muted }, pctTick) }, { stacked: true, grid: { display: false }, ticks: { color: T.ink2, autoSkip: false } }),
+        plugins: { tooltip: { callbacks: { title: (i) => t[i[0].dataIndex].grupo, label: (x) => `${x.dataset.label}: ${pct(x.raw)}` } } } } });
+    tabla("t-resultado", [{ t: "Tipo", v: (x) => x.grupo }, { t: "Licitaciones", v: (x) => num(x.n), n: 1 }, { t: "Adjudicada", v: (x) => pct(x.adjudicada), n: 1 }, { t: "Desierta", v: (x) => pct(x.desierta), n: 1 }, { t: "Revocada", v: (x) => pct(x.revocada), n: 1 }, { t: "Sin resolver", v: (x) => pct(x.sin_resolver), n: 1 }, { t: "Días ofertar", v: (x) => num(x.dias_oferta), n: 1 }, { t: "Días adjudicar", v: (x) => num(x.dias_adjudicar), n: 1 }], t);
+    chart("c-dias-tipo", { type: "bar", data: { labels: t.map((x) => recorta(x.grupo, 30)), datasets: [{ data: t.map((x) => x.dias_adjudicar), backgroundColor: T.s1, borderRadius: 3, maxBarThickness: 18 }] },
+      options: { indexAxis: "y", scales: ejes(T, { beginAtZero: true, title: { display: true, text: "Días", color: T.muted } }, { grid: { display: false }, ticks: { color: T.ink2, autoSkip: false } }),
+        plugins: { tooltip: { callbacks: { title: (i) => t[i[0].dataIndex].grupo, label: (x) => `${num(x.raw)} días para adjudicar · ${num(t[x.dataIndex].dias_oferta)} para ofertar` } } } } });
+    chart("c-dias-mes", { type: "line", data: { labels: meses, datasets: [{ data: rango(pr.mensual), borderColor: T.s1, backgroundColor: T.s1, borderWidth: 2, pointRadius: 3, spanGaps: true }] },
+      options: { scales: ejes(T, { grid: { display: false } }, { beginAtZero: true }), plugins: { tooltip: { callbacks: { label: (x) => num(x.raw) + " días" } } } } });
+  }
+
+  if (tab === "alertas") {
+    const a = X.a, tot = a.reduce((s, v) => s + v, 0);
+    kpis("k-alertas", [0, 1, 2, 3].map((k) => {
+      const fr = tot ? a[k] / tot : null;
+      return [`${k} señal${k === 1 ? "" : "es"}`, num(a[k]), fr != null && fr > 0 && fr < 0.001 ? "< 0,1 % de las adjudicadas" : pct(fr) + " de las adjudicadas"];
+    }));
+    const { senales, ofer, dofer, razon, org, tipo } = D.c;
+    const filas = ALERTAS.filter((r) => X.mk[r[0]]).sort((x, y) => (y[3] ?? -1) - (x[3] ?? -1)).slice(0, 400);
+    const n2 = ALERTAS.filter((r) => X.mk[r[0]]).length;
+    $("h-alertas").textContent = `Licitaciones con 2 o 3 señales · ${num(n2)} en el filtro${n2 > 400 ? " (las 400 de mayor monto)" : ""}`;
+    const marcas = (s) => [s & 1 ? "oferente único" : "", s & 2 ? "sobre estimado" : "", s & 4 ? "plazo corto" : ""].filter(Boolean).map((t) => `<span class="marca">${t}</span>`).join("");
+    tabla("t-alertas", [
+      { t: "Señales", v: (r) => marcas(senales[r[0]]), html: 1 },
+      { t: "Código", v: (r) => r[1], code: 1 },
+      { t: "Licitación", v: (r) => r[2] },
+      { t: "Organismo", v: (r) => CAT.organismos[org[r[0]]][1] },
+      { t: "Adjudicado", v: (r) => (r[3] == null ? "—" : (r[4] === "CLP" ? clp(r[3]) : num(r[3]) + " " + (r[4] ?? ""))), n: 1 },
+      { t: "Adj. / est.", v: (r) => (Number.isNaN(razon[r[0]]) ? "—" : pct(razon[r[0]], 0)), n: 1 },
+      { t: "Oferentes", v: (r) => num(ofer[r[0]]), n: 1 },
+      { t: "Días para ofertar", v: (r) => (dofer[r[0]] === -32768 ? "—" : num(dofer[r[0]])), n: 1 },
+      { t: "Tipo", v: (r) => r[1] && CAT.tipos[tipo[r[0]]][0] },
+      { t: "Ficha", v: (r) => (r[6] ? `<a href="${esc(r[6])}" target="_blank" rel="noopener">Abrir</a>` : ""), html: 1 },
+    ], filas);
+  }
+}
+
+// ---------- carga
+async function iniciar() {
+  // Los binarios se publican en base64 (.b64.txt): la plataforma no sirve archivos .bin.
+  const bin = async (f) => {
+    const r = await fetch(f);
+    if (!r.ok) throw new Error(f + ": HTTP " + r.status);
+    const b64 = (await r.text()).trim();
+    if (Uint8Array.fromBase64) return Uint8Array.fromBase64(b64).buffer;
+    const s = atob(b64), u = new Uint8Array(s.length);
+    for (let i = 0; i < s.length; i++) u[i] = s.charCodeAt(i);
+    return u.buffer;
+  };
+  const json = async (f) => { const r = await fetch(f); if (!r.ok) throw new Error(f + ": HTTP " + r.status); return r.json(); };
+  try {
+    const [meta, cat, licB, adjB, al] = await Promise.all([json("meta.json"), json("catalogos.json"), bin("lic.b64.txt"), bin("adj.b64.txt"), json("alertas.json")]);
+    META = meta; CAT = cat; ALERTAS = al;
+    D = Metricas.cargar(meta, licB, adjB, cat);
+    const [y0, m0] = meta.mes0.split("-").map(Number);
+    let maxMes = 0;
+    for (let i = 0; i < D.n; i++) if (D.c.mes[i] > maxMes) maxMes = D.c.mes[i];
+    MESES = Array.from({ length: maxMes + 1 }, (_, k) => { const t = (y0 * 12 + m0 - 1) + k; return `${Math.floor(t / 12)}-${String((t % 12) + 1).padStart(2, "0")}`; });
+    const opts = (sel, items) => { $(sel).insertAdjacentHTML("beforeend", items.map(([v, t]) => `<option value="${v}">${esc(t)}</option>`).join("")); };
+    opts("f-desde", MESES.map((m, i) => [i, m]));
+    opts("f-hasta", MESES.map((m, i) => [i, m]));
+    $("f-hasta").value = String(MESES.length - 1);
+    opts("f-tipo", cat.tipos.map(([t, d], i) => [i, `${t} · ${d}`]));
+    opts("f-region", cat.regiones.map((r, i) => [i + 1, r.trim()]));
+    opts("f-sector", cat.sectores.map((s, i) => [i + 1, s]));
+    $("l-org").innerHTML = cat.organismos.map(([, n]) => `<option value="${esc(n)}"></option>`).join("");
+    $("periodo").textContent = `Mercado Público · licitaciones ${MESES[0]} a ${MESES[MESES.length - 1]}`;
+    $("pie").textContent = `Fuente: descarga masiva de Mercado Público (ChileCompra) y su API. Datos al ${(meta.corte_datos || meta.corte).slice(0, 10)}. Cálculos en el navegador sobre ${num(meta.n)} licitaciones.`;
+    try { const g = JSON.parse(localStorage.getItem("obs-filtros") || "null"); if (g) for (const [k, v] of Object.entries(g)) if ($(k)) $(k).value = v; } catch (e) { /* sin almacenamiento */ }
+    const aplicar = () => {
+      estado.f = leerFiltros();
+      try { localStorage.setItem("obs-filtros", JSON.stringify(Object.fromEntries(["f-desde", "f-hasta", "f-tipo", "f-region", "f-sector", "f-org"].map((k) => [k, $(k).value])))); } catch (e) { /* sin almacenamiento */ }
+      render();
+    };
+    for (const id of ["f-desde", "f-hasta", "f-tipo", "f-region", "f-sector"]) $(id).addEventListener("change", aplicar);
+    $("f-org").addEventListener("change", aplicar);
+    $("f-org").addEventListener("input", () => { if ($("f-org").value === "") aplicar(); });
+    $("limpiar").addEventListener("click", () => { $("f-desde").value = "0"; $("f-hasta").value = String(MESES.length - 1); for (const id of ["f-tipo", "f-region", "f-sector", "f-org"]) $(id).value = ""; aplicar(); });
+    document.querySelectorAll(".seg button").forEach((b) => b.addEventListener("click", () => {
+      estado.dim = b.dataset.dim;
+      document.querySelectorAll(".seg button").forEach((x) => x.setAttribute("aria-pressed", x === b));
+      render();
+    }));
+    const redibujar = () => { for (const k of Object.keys(charts)) { charts[k].destroy(); delete charts[k]; } render(); };
+    matchMedia("(prefers-color-scheme: dark)").addEventListener("change", redibujar);
+    new MutationObserver(redibujar).observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
+    estado.f = leerFiltros();
+    mostrar((location.hash || "#resumen").slice(1));
+  } catch (err) {
+    $("estado").innerHTML = `<span class="aviso">No se pudieron cargar los datos (${esc(err.message)}). Recarga la página.</span>`;
+  }
+}
+iniciar();
+</script>
