@@ -111,6 +111,28 @@ td a { color: var(--accent); }
 .seg button[aria-pressed="true"] { background: var(--chip); color: var(--ink); font-weight: 600; }
 .marca { display: inline-block; font: 500 11px var(--mono); padding: 1px 6px; border-radius: 4px; background: var(--chip); color: var(--ink); margin: 1px 2px 1px 0; white-space: nowrap; }
 .carga { font: 500 12px var(--mono); color: var(--muted); }
+.controles { display: flex; flex-wrap: wrap; gap: 10px 16px; align-items: end; margin-bottom: 10px; }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.chips button { font-size: 12.5px; border: 1px solid var(--line); background: var(--surface); color: var(--ink2); border-radius: 999px; padding: 4px 10px; }
+.chips button[aria-pressed="true"] { background: var(--chip); color: var(--ink); border-color: var(--accent); font-weight: 600; }
+th.ord { cursor: pointer; user-select: none; }
+th.ord:hover { color: var(--ink); }
+th.ord[aria-sort="descending"]::after { content: " ↓"; }
+th.ord[aria-sort="ascending"]::after { content: " ↑"; }
+tr.clic { cursor: pointer; }
+tr.clic:hover td { background: var(--chip); }
+.punt { display: inline-block; min-width: 2.4em; text-align: center; font: 600 12px var(--mono); padding: 1px 6px; border-radius: 4px; }
+.punt.alto { background: var(--s2); color: #fff; }
+.punt.medio { background: var(--warn-bg); color: var(--warn-ink); }
+.punt.bajo { background: var(--chip); color: var(--ink2); }
+.barra { display: inline-block; height: 8px; border-radius: 2px; background: var(--s1); vertical-align: middle; margin-right: 6px; }
+.ficha { border-top: 3px solid var(--accent); display: grid; gap: 14px; scroll-margin-top: 150px; }
+.ficha .kpi .v { font-size: 21px; }
+/* La primera columna (nombre) queda fija al desplazar tablas anchas. */
+#t-alertas td:first-child, #t-alertas th:first-child { position: sticky; left: 0; background: var(--surface); z-index: 1; }
+#t-alertas th:first-child { z-index: 2; }
+#t-alertas tr.clic:hover td:first-child { background: var(--chip); }
+.pares { display: flex; flex-wrap: wrap; gap: 6px; }
 .metodo { max-width: 78ch; display: grid; gap: 10px; }
 .metodo p, .metodo li { color: var(--ink2); }
 .metodo dt { font-weight: 650; margin-top: 8px; }
@@ -249,10 +271,47 @@ footer { margin-top: 32px; font-size: 12.5px; color: var(--muted); }
   <!-- ALERTAS -->
   <section class="panel" id="p-alertas" role="tabpanel" hidden>
     <h2>Señales de alerta</h2>
-    <p class="sub">Licitaciones adjudicadas con <b>oferente único</b>, <b>adjudicadas más de 20 % sobre lo estimado</b> o con <b>plazo de ofertas en el 10 % más corto de su tipo</b>. Una señal no prueba una irregularidad: indica dónde vale la pena revisar el expediente.</p>
+    <p class="sub">Cada licitación adjudicada recibe un <b>puntaje de riesgo de 0 a 100</b> que suma seis señales ponderadas. <b>Riesgo alto</b>: 40 o más, es decir, al menos dos señales y una de ellas fuerte. Una señal no prueba una irregularidad: indica dónde vale la pena revisar el expediente.</p>
     <div class="kpis" id="k-alertas"></div>
-    <div class="card"><h3 id="h-alertas">Licitaciones con 2 o 3 señales</h3>
-      <div class="tabla" id="t-alertas" style="max-height:560px"></div></div>
+    <div class="card"><h3>Frecuencia de cada señal entre las adjudicadas</h3>
+      <div class="chart" style="height:230px"><canvas id="c-senales"></canvas></div></div>
+    <div class="card" id="explorador">
+      <div class="controles">
+        <div class="campo"><label>Agrupar por</label>
+          <div class="seg" role="group" aria-label="Agrupar por" id="seg-vista">
+            <button data-vista="lic" aria-pressed="true">Licitación</button><button data-vista="prov" aria-pressed="false">Proveedor</button><button data-vista="org" aria-pressed="false">Organismo</button>
+          </div></div>
+        <div class="campo" id="w-min"><label for="a-min">Puntaje mínimo</label>
+          <select id="a-min"><option value="20">20</option><option value="25">25</option><option value="30">30</option><option value="35">35</option><option value="40" selected>40 (riesgo alto)</option><option value="45">45</option><option value="50">50</option></select></div>
+        <div class="campo" id="w-minlic" hidden><label for="a-minlic">Mínimo de licitaciones ganadas</label>
+          <select id="a-minlic"><option value="3" selected>3</option><option value="5">5</option><option value="10">10</option><option value="30">30</option></select></div>
+        <div class="campo" style="flex:1 1 220px"><label for="a-buscar">Buscar</label>
+          <input type="search" id="a-buscar" placeholder="Nombre, código o RUT" autocomplete="off" style="width:100%"></div>
+      </div>
+      <div class="campo" id="w-req"><label>Debe incluir</label><div class="chips" id="a-req"></div></div>
+      <p class="nota" id="a-nota"></p>
+      <div class="tabla" id="t-alertas" style="max-height:600px"></div>
+    </div>
+    <div class="card ficha" id="ficha" hidden>
+      <div style="display:flex;justify-content:space-between;gap:12px;align-items:start;flex-wrap:wrap">
+        <div><span class="eyebrow">Ficha del proveedor</span><h2 id="f-nombre"></h2><p class="nota" id="f-sub"></p></div>
+        <button class="btn" id="f-cerrar" type="button">Cerrar ficha</button>
+      </div>
+      <div class="kpis" id="f-kpis"></div>
+      <div class="grid2">
+        <div><h3>Sus señales frente al promedio</h3><p class="nota">% de sus licitaciones ganadas con cada señal, comparado con todas las adjudicadas del filtro.</p>
+          <div class="chart" style="height:260px"><canvas id="c-f-senales"></canvas></div></div>
+        <div><h3>Monto adjudicado por mes (CLP)</h3>
+          <div class="chart" style="height:260px"><canvas id="c-f-mes"></canvas></div></div>
+      </div>
+      <h3>Organismos que le adjudican</h3>
+      <div class="tabla" id="t-f-orgs" style="max-height:300px"></div>
+      <h3 style="margin-top:14px">Acompañantes</h3>
+      <p class="nota">Proveedores que ofertaron junto a él al menos 5 veces en licitaciones de 2 a 4 oferentes y nunca le ganaron (él ganó 80 % o más). Puede indicar competencia simulada o un mercado de pocos actores.</p>
+      <div id="t-f-pares"></div>
+      <h3 style="margin-top:14px">Licitaciones ganadas</h3>
+      <div class="tabla" id="t-f-lics" style="max-height:420px"></div>
+    </div>
   </section>
 
   <!-- METODOLOGÍA -->
@@ -266,6 +325,8 @@ footer { margin-top: 32px; font-size: 12.5px; color: var(--muted); }
         <dt>Adjudicado / estimado</dt><dd>Suma de las líneas adjudicadas dividida por el monto estimado, cuando ambos están en la misma moneda. Se excluyen las razones bajo 10 %: casi siempre convenios de suministro adjudicados por precio unitario, donde la razón no mide precio.</dd>
         <dt>Montos atípicos</dt><dd>Se excluyen líneas con errores de captura: cantidad adjudicada más de 100 veces lo ofertado; línea que vale más de 10 veces el tope legal de su tipo (L1 menos de 100 UTM, LE menos de 1.000 UTM, etc.); o más de 10 veces un estimado creíble. Solo 39 líneas sumaban cerca de un cuarto del monto del periodo.</dd>
         <dt>HHI</dt><dd>Índice Herfindahl-Hirschman: suma de los cuadrados de la participación de cada proveedor en el monto en CLP de un organismo (0 a 10.000). Sobre 2.500, concentración alta.</dd>
+        <dt>Puntaje de riesgo</dt><dd>Suma ponderada de seis señales por licitación adjudicada: oferente único (25), competencia descalificada: todos menos el ganador rechazados (25), se pagó al menos 50 % más que la oferta aceptada más barata (20), adjudicado más de 20 % sobre lo estimado (15), plazo de ofertas en el 10 % más corto de su tipo (10) y precio unitario más de 5 veces la referencia del mismo producto (5). Riesgo alto: 40 o más.</dd>
+        <dt>Dependencia, captura y acompañantes</dt><dd>Dependencia: parte de los ingresos del proveedor que viene de su organismo principal. Captura: parte del gasto de ese organismo que se lleva. Acompañantes: proveedores que ofertan junto a él 5 o más veces en licitaciones de 2 a 4 oferentes sin ganarle nunca.</dd>
         <dt>Licitaciones maduras</dt><dd>Para la pregunta 4 solo cuentan las cerradas hace más de 120 días, para que las que aún pueden adjudicarse no inflen las tasas de fracaso.</dd>
       </dl>
       <h3>Limitaciones</h3>
@@ -302,8 +363,11 @@ const clp = (x) => {
 const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
 const $ = (id) => document.getElementById(id);
 
-let D = null, CAT = null, ALERTAS = null, META = null, MESES = [];
-const estado = { tab: "resumen", dim: "tipo", f: null };
+let D = null, CAT = null, META = null, MESES = [], PARES = [], CODIGOS = null, NOMBRES = null;
+const estado = { tab: "resumen", dim: "tipo", f: null, vista: "lic", req: 0, orden: {}, prov: null };
+const FICHA = (codigo) => "http://www.mercadopublico.cl/fichaLicitacion.html?idLicitacion=" + encodeURIComponent(codigo);
+// Etiquetas cortas de las señales, en el orden de meta.SENALES (bits 0–5).
+const CORTO = ["oferente único", "descalificada", "sobre más barata", "sobre estimado", "plazo corto", "precio ref."];
 
 // ---------- pestañas (con #ancla)
 const TABS = ["resumen", "competencia", "precio", "concentracion", "proceso", "alertas", "metodologia"];
@@ -526,30 +590,225 @@ function render() {
       options: { scales: ejes(T, { grid: { display: false } }, { beginAtZero: true }), plugins: { tooltip: { callbacks: { label: (x) => num(x.raw) + " días" } } } } });
   }
 
-  if (tab === "alertas") {
-    const a = X.a, tot = a.reduce((s, v) => s + v, 0);
-    kpis("k-alertas", [0, 1, 2, 3].map((k) => {
-      const fr = tot ? a[k] / tot : null;
-      return [`${k} señal${k === 1 ? "" : "es"}`, num(a[k]), fr != null && fr > 0 && fr < 0.001 ? "< 0,1 % de las adjudicadas" : pct(fr) + " de las adjudicadas"];
-    }));
-    const { senales, ofer, dofer, razon, org, tipo } = D.c;
-    const filas = ALERTAS.filter((r) => X.mk[r[0]]).sort((x, y) => (y[3] ?? -1) - (x[3] ?? -1)).slice(0, 400);
-    const n2 = ALERTAS.filter((r) => X.mk[r[0]]).length;
-    $("h-alertas").textContent = `Licitaciones con 2 o 3 señales · ${num(n2)} en el filtro${n2 > 400 ? " (las 400 de mayor monto)" : ""}`;
-    const marcas = (s) => [s & 1 ? "oferente único" : "", s & 2 ? "sobre estimado" : "", s & 4 ? "plazo corto" : ""].filter(Boolean).map((t) => `<span class="marca">${t}</span>`).join("");
-    tabla("t-alertas", [
-      { t: "Señales", v: (r) => marcas(senales[r[0]]), html: 1 },
-      { t: "Código", v: (r) => r[1], code: 1 },
-      { t: "Licitación", v: (r) => r[2] },
-      { t: "Organismo", v: (r) => CAT.organismos[org[r[0]]][1] },
-      { t: "Adjudicado", v: (r) => (r[3] == null ? "—" : (r[4] === "CLP" ? clp(r[3]) : num(r[3]) + " " + (r[4] ?? ""))), n: 1 },
-      { t: "Adj. / est.", v: (r) => (Number.isNaN(razon[r[0]]) ? "—" : pct(razon[r[0]], 0)), n: 1 },
-      { t: "Oferentes", v: (r) => num(ofer[r[0]]), n: 1 },
-      { t: "Días para ofertar", v: (r) => (dofer[r[0]] === -32768 ? "—" : num(dofer[r[0]])), n: 1 },
-      { t: "Tipo", v: (r) => r[1] && CAT.tipos[tipo[r[0]]][0] },
-      { t: "Ficha", v: (r) => (r[6] ? `<a href="${esc(r[6])}" target="_blank" rel="noopener">Abrir</a>` : ""), html: 1 },
-    ], filas);
+  if (tab === "alertas") renderAlertas(X, T);
+}
+
+// ---------- señales de alerta
+let cargandoTextos = null;
+function cargarTextos() {
+  if (!cargandoTextos) {
+    cargandoTextos = Promise.all([fetch("codigos.txt").then((r) => r.text()), fetch("nombres.json").then((r) => r.json())])
+      .then(([c, n]) => { CODIGOS = c.split("\n"); NOMBRES = new Map(n); render(); })
+      .catch(() => { cargandoTextos = null; });
   }
+  return cargandoTextos;
+}
+const codigo = (li) => (CODIGOS ? CODIGOS[li] : "…");
+const nombreLic = (li) => (NOMBRES ? NOMBRES.get(li) ?? "" : "");
+const prov = (p) => CAT.proveedores[p];
+const orgNombre = (o) => CAT.organismos[o][1];
+function puntajeHtml(p) {
+  const k = p >= D.k.RIESGO_ALTO ? "alto" : p >= D.k.RIESGO_MEDIO ? "medio" : "bajo";
+  return `<span class="punt ${k}" title="Puntaje de riesgo ${p} de 100">${p}</span>`;
+}
+const marcas = (bits) => CORTO.map((t, b) => (bits & (1 << b) ? `<span class="marca" title="${esc(D.k.SENALES[b][1])}">${t}</span>` : "")).join("");
+const barraPct = (x) => `<span class="barra" style="width:${Math.round(40 * Math.min(1, x || 0))}px"></span>${pct(x, 0)}`;
+
+// Tabla con encabezados que ordenan (clic) y filas opcionalmente clicables.
+function tablaOrdenable(id, cols, filas, clave, porDefecto, alClic) {
+  const o = estado.orden[clave] || porDefecto;
+  const col = cols.find((c) => c.k === o.k) || cols.find((c) => c.k === porDefecto.k);
+  const ordenadas = filas.slice().sort((a, b) => {
+    const va = col.s(a), vb = col.s(b);
+    const r = typeof va === "string" ? va.localeCompare(vb, "es") : (va ?? -Infinity) - (vb ?? -Infinity);
+    return o.dir === "asc" ? r : -r;
+  });
+  const LIM = 300;
+  const head = "<tr>" + cols.map((c) => `<th class="${c.n ? "n " : ""}${c.s ? "ord" : ""}" data-k="${c.k}"${c.k === col.k ? ` aria-sort="${o.dir === "asc" ? "ascending" : "descending"}"` : ""}${c.h ? ` title="${esc(c.h)}"` : ""}>${esc(c.t)}</th>`).join("") + "</tr>";
+  const body = ordenadas.slice(0, LIM).map((f, i) => `<tr${alClic ? ` class="clic" data-i="${i}" tabindex="0"` : ""}>` + cols.map((c) => `<td class="${c.n ? "n" : c.code ? "code" : ""}">${c.html ? c.v(f) : esc(c.v(f))}</td>`).join("") + "</tr>").join("");
+  $(id).innerHTML = `<table><thead>${head}</thead><tbody>${body}</tbody></table>`;
+  $(id).querySelectorAll("th.ord").forEach((th) => th.addEventListener("click", () => {
+    const k = th.dataset.k;
+    const prev = estado.orden[clave] || porDefecto;
+    estado.orden[clave] = { k, dir: prev.k === k && prev.dir === "desc" ? "asc" : "desc" };
+    render();
+  }));
+  if (alClic) $(id).querySelectorAll("tr.clic").forEach((tr) => {
+    const go = () => alClic(ordenadas[Number(tr.dataset.i)]);
+    tr.addEventListener("click", go);
+    tr.addEventListener("keydown", (e) => { if (e.key === "Enter") go(); });
+  });
+  return { total: filas.length, mostradas: Math.min(LIM, filas.length) };
+}
+
+function renderAlertas(X, T) {
+  if (!CODIGOS) cargarTextos();
+  const a = X.a, K = D.k;
+  kpis("k-alertas", [
+    [`Riesgo alto (≥ ${K.RIESGO_ALTO})`, num(a.alto), pct(a.n ? a.alto / a.n : null, 2) + " de las adjudicadas"],
+    [`Riesgo medio (${K.RIESGO_MEDIO}–${K.RIESGO_ALTO - 1})`, num(a.medio), pct(a.n ? a.medio / a.n : null) + " · casi siempre solo oferente único"],
+    ["Sin señales", num(a.sin), pct(a.n ? a.sin / a.n : null)],
+    ["Monto con riesgo alto (CLP)", clp(a.monto_alto)],
+  ]);
+  chart("c-senales", { type: "bar", data: { labels: K.SENALES.map(([, e, w]) => `${e} · ${w} pts`), datasets: [{ data: a.prev, backgroundColor: T.s2, borderRadius: 3, maxBarThickness: 16 }] },
+    options: { indexAxis: "y", scales: ejes(T, { beginAtZero: true, ticks: Object.assign({ color: T.muted }, pctTick) }, { grid: { display: false }, ticks: { color: T.ink2, autoSkip: false } }),
+      plugins: { tooltip: { callbacks: { label: (x) => pct(x.raw) + " de las adjudicadas" } } } } });
+
+  const vista = estado.vista;
+  $("w-min").hidden = vista !== "lic";
+  $("w-req").hidden = vista !== "lic";
+  $("w-minlic").hidden = vista !== "prov";
+  const q = $("a-buscar").value.trim().toLowerCase();
+  const { puntaje, senal, estado: est, org, ofer, razon, monto, tipo } = D.c;
+
+  if (vista === "lic") {
+    const min = Number($("a-min").value), req = estado.req;
+    // Proveedor(es) ganador(es) de cada licitación, para mostrarlos en la tabla.
+    if (!X.ganadores) {
+      X.ganadores = new Map();
+      for (let j = 0; j < D.adj.lic.length; j++) {
+        const li = D.adj.lic[j];
+        if (!X.mk[li] || puntaje[li] < 20) continue;
+        if (!X.ganadores.has(li)) X.ganadores.set(li, []);
+        X.ganadores.get(li).push(D.adj.prov[j]);
+      }
+    }
+    const filas = [];
+    for (let i = 0; i < D.n; i++) {
+      if (!X.mk[i] || est[i] !== 0 || puntaje[i] < min || (senal[i] & req) !== req) continue;
+      if (q) {
+        const g = (X.ganadores.get(i) || []).map((p) => prov(p)[0] + " " + prov(p)[1]).join(" ");
+        if (!(codigo(i) + " " + nombreLic(i) + " " + orgNombre(org[i]) + " " + g).toLowerCase().includes(q)) continue;
+      }
+      filas.push(i);
+    }
+    const r = tablaOrdenable("t-alertas", [
+      { k: "p", t: "Puntaje", v: (i) => puntajeHtml(puntaje[i]), html: 1, s: (i) => puntaje[i] * 1e15 + (Number.isNaN(monto[i]) ? 0 : monto[i]) },
+      { k: "s", t: "Señales", v: (i) => marcas(senal[i]), html: 1 },
+      { k: "c", t: "Código", v: (i) => codigo(i), code: 1, s: (i) => codigo(i) },
+      { k: "n", t: "Licitación", v: (i) => nombreLic(i), s: (i) => nombreLic(i) },
+      { k: "o", t: "Organismo", v: (i) => orgNombre(org[i]), s: (i) => orgNombre(org[i]) },
+      { k: "g", t: "Ganador", v: (i) => (X.ganadores.get(i) || []).map((p) => `<a href="#" data-prov="${p}">${esc(recorta(prov(p)[0], 38))}</a>`).join("<br>"), html: 1 },
+      { k: "m", t: "Adjudicado", v: (i) => clp(monto[i]), n: 1, s: (i) => (Number.isNaN(monto[i]) ? null : monto[i]) },
+      { k: "r", t: "Adj. / est.", v: (i) => (Number.isNaN(razon[i]) ? "—" : pct(razon[i], 0)), n: 1, s: (i) => (Number.isNaN(razon[i]) ? null : razon[i]) },
+      { k: "of", t: "Oferentes", v: (i) => num(ofer[i]), n: 1, s: (i) => ofer[i] },
+      { k: "t", t: "Tipo", v: (i) => CAT.tipos[tipo[i]][0], s: (i) => CAT.tipos[tipo[i]][0] },
+      { k: "f", t: "Ficha", v: (i) => `<a href="${FICHA(codigo(i))}" target="_blank" rel="noopener">Abrir</a>`, html: 1 },
+    ], filas, "lic", { k: "p", dir: "desc" });
+    $("a-nota").textContent = `${num(r.total)} licitaciones con puntaje ≥ ${min}${req ? " y las señales elegidas" : ""}${r.total > r.mostradas ? ` · se muestran ${num(r.mostradas)}` : ""}. Clic en un ganador para ver su ficha; clic en una columna para ordenar.`;
+    $("t-alertas").querySelectorAll("a[data-prov]").forEach((el) => el.addEventListener("click", (e) => { e.preventDefault(); abrirFicha(Number(el.dataset.prov)); }));
+  }
+
+  if (vista === "prov") {
+    if (!X.provs) X.provs = Metricas.proveedoresRiesgo(D, X.mk, 1, PARES);
+    const minLic = Number($("a-minlic").value);
+    const filas = X.provs.filter((r) => r.n_lic >= minLic && (!q || (prov(r.prov)[0] + " " + prov(r.prov)[1]).toLowerCase().includes(q)));
+    const r = tablaOrdenable("t-alertas", [
+      { k: "nm", t: "Proveedor", v: (r) => prov(r.prov)[0], s: (r) => prov(r.prov)[0] },
+      { k: "rut", t: "RUT", v: (r) => prov(r.prov)[1], code: 1 },
+      { k: "nl", t: "Ganadas", v: (r) => num(r.n_lic), n: 1, s: (r) => r.n_lic },
+      { k: "m", t: "Monto CLP", v: (r) => clp(r.monto), n: 1, s: (r) => r.monto },
+      { k: "na", t: "Riesgo alto", v: (r) => num(r.n_alto), n: 1, s: (r) => r.n_alto, h: "Licitaciones ganadas con puntaje ≥ 40" },
+      { k: "ma", t: "Monto riesgo alto", v: (r) => clp(r.monto_alto), n: 1, s: (r) => r.monto_alto },
+      { k: "pm", t: "Puntaje medio", v: (r) => num(r.puntaje_medio, 1), n: 1, s: (r) => r.puntaje_medio },
+      { k: "pu", t: "% oferente único", v: (r) => barraPct(r.pct_unico), html: 1, s: (r) => r.pct_unico },
+      { k: "op", t: "Organismo principal", v: (r) => orgNombre(r.org_principal), s: (r) => orgNombre(r.org_principal) },
+      { k: "de", t: "Dependencia", v: (r) => barraPct(r.dependencia), html: 1, s: (r) => r.dependencia, h: "Parte de sus ingresos que viene de su organismo principal" },
+      { k: "ca", t: "Captura", v: (r) => barraPct(r.captura), html: 1, s: (r) => r.captura, h: "Parte del gasto de su organismo principal que se lleva" },
+      { k: "mu", t: "Sin competencia en un organismo", v: (r) => num(r.max_unico_org), n: 1, s: (r) => r.max_unico_org, h: "Máximo de licitaciones ganadas como oferente único en un mismo organismo" },
+      { k: "ac", t: "Acompañantes", v: (r) => num(r.n_acompanantes), n: 1, s: (r) => r.n_acompanantes },
+      { k: "te", t: "Tasa de éxito", v: (r) => (prov(r.prov)[2] ? pct(Math.min(1, r.n_lic / prov(r.prov)[2]), 0) : "—"), n: 1, s: (r) => (prov(r.prov)[2] ? r.n_lic / prov(r.prov)[2] : null), h: "Ganadas en el filtro / licitaciones en que ofertó en todo el periodo" },
+    ], filas, "prov", { k: "ma", dir: "desc" }, (r) => abrirFicha(r.prov));
+    $("a-nota").textContent = `${num(r.total)} proveedores con ${minLic} o más licitaciones ganadas en CLP${r.total > r.mostradas ? ` · se muestran ${num(r.mostradas)}` : ""}. Clic en una fila para ver su ficha; clic en una columna para ordenar (por ejemplo, por dependencia o por licitaciones sin competencia).`;
+  }
+
+  if (vista === "org") {
+    if (!X.orgsR) {
+      X.orgsR = Metricas.organismosRiesgo(D, X.mk, D.k.MIN_GRUPO);
+      // Proveedor más favorecido de cada organismo (más monto en CLP).
+      const top = new Map();
+      for (const r of (X.provsAll ||= Metricas.proveedoresRiesgo(D, X.mk, 1, PARES))) {
+        const t = top.get(r.org_principal);
+        if (!t || r.captura > t.captura) top.set(r.org_principal, { prov: r.prov, captura: r.captura });
+      }
+      for (const r of X.orgsR) r.top = top.get(r.org);
+    }
+    const filas = X.orgsR.filter((r) => !q || orgNombre(r.org).toLowerCase().includes(q));
+    const r = tablaOrdenable("t-alertas", [
+      { k: "nm", t: "Organismo", v: (r) => orgNombre(r.org), s: (r) => orgNombre(r.org) },
+      { k: "n", t: "Adjudicadas", v: (r) => num(r.n), n: 1, s: (r) => r.n },
+      { k: "pa", t: "% riesgo alto", v: (r) => pct(r.pct_alto), n: 1, s: (r) => r.pct_alto },
+      { k: "na", t: "Riesgo alto", v: (r) => num(r.n_alto), n: 1, s: (r) => r.n_alto },
+      { k: "pm", t: "Puntaje medio", v: (r) => num(r.puntaje_medio, 1), n: 1, s: (r) => r.puntaje_medio },
+      { k: "pu", t: "% oferente único", v: (r) => barraPct(r.pct_unico), html: 1, s: (r) => r.pct_unico },
+      { k: "pd", t: "% descalificada", v: (r) => barraPct(r.pct_descalificada), html: 1, s: (r) => r.pct_descalificada, h: "Hubo 2+ oferentes y todos menos el ganador fueron rechazados" },
+      { k: "ma", t: "Monto riesgo alto", v: (r) => clp(r.monto_alto), n: 1, s: (r) => r.monto_alto },
+      { k: "tp", t: "Proveedor con más captura", v: (r) => (r.top ? `<a href="#" data-prov="${r.top.prov}">${esc(recorta(prov(r.top.prov)[0], 34))}</a> · ${pct(r.top.captura, 0)}` : "—"), html: 1, s: (r) => (r.top ? r.top.captura : null), h: "Entre los proveedores cuyo organismo principal es este" },
+    ], filas, "org", { k: "pa", dir: "desc" });
+    $("a-nota").textContent = `${num(r.total)} organismos con al menos ${D.k.MIN_GRUPO} licitaciones adjudicadas. Clic en un proveedor para ver su ficha.`;
+    $("t-alertas").querySelectorAll("a[data-prov]").forEach((el) => el.addEventListener("click", (e) => { e.preventDefault(); abrirFicha(Number(el.dataset.prov)); }));
+  }
+
+  if (estado.prov != null) renderFicha(X, T);
+}
+
+function abrirFicha(p) {
+  estado.prov = p;
+  $("ficha").hidden = false;
+  render();
+  $("ficha").scrollIntoView({ behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth", block: "start" });
+}
+
+function renderFicha(X, T) {
+  const p = estado.prov;
+  const [nombre, rut, ofertadas] = prov(p);
+  if (!X.provsAll) X.provsAll = Metricas.proveedoresRiesgo(D, X.mk, 1, PARES);
+  const r = X.provsAll.find((x) => x.prov === p);
+  $("f-nombre").textContent = nombre;
+  if (!r) {
+    $("f-sub").textContent = `RUT ${rut} · sin licitaciones adjudicadas en CLP con los filtros actuales.`;
+    for (const id of ["f-kpis", "t-f-orgs", "t-f-pares", "t-f-lics"]) $(id).innerHTML = "";
+    return;
+  }
+  const F = Metricas.fichaProveedor(D, X.mk, p);
+  $("f-sub").textContent = `RUT ${rut} · ofertó en ${num(ofertadas)} licitaciones en todo el periodo · organismo principal: ${orgNombre(r.org_principal)}`;
+  kpis("f-kpis", [
+    ["Licitaciones ganadas", num(r.n_lic)], ["Monto CLP", clp(r.monto)], ["Con riesgo alto", num(r.n_alto), clp(r.monto_alto)],
+    ["Oferente único", pct(r.pct_unico)], ["Dependencia de su organismo principal", pct(r.dependencia, 0), `capta ${pct(r.captura, 0)} de su gasto`],
+    ["Sin competencia en un mismo organismo", num(r.max_unico_org), "máximo de licitaciones"],
+  ]);
+  const prom = X.a.prev;
+  chart("c-f-senales", { type: "bar", data: { labels: CORTO, datasets: [
+      { label: "Este proveedor", data: r.senales.map((v) => v / r.n_lic), backgroundColor: T.s2, borderRadius: 3 },
+      { label: "Todas las adjudicadas", data: prom, backgroundColor: T.axis, borderRadius: 3 } ] },
+    options: { scales: ejes(T, { grid: { display: false }, ticks: { color: T.ink2, maxRotation: 30 } }, { beginAtZero: true, ticks: Object.assign({ color: T.muted }, pctTick) }),
+      plugins: { legend: { display: true, labels: { color: T.ink2, boxWidth: 10 } }, tooltip: { callbacks: { label: (x) => `${x.dataset.label}: ${pct(x.raw)}` } } } } });
+  const mesesF = MESES.slice(estado.f.desde, estado.f.hasta + 1);
+  chart("c-f-mes", { type: "bar", data: { labels: mesesF, datasets: [{ data: mesesF.map((_, k) => F.porMes.get(estado.f.desde + k) || 0), backgroundColor: T.s1, borderRadius: 3 }] },
+    options: { scales: ejes(T, { grid: { display: false } }, { beginAtZero: true, ticks: { color: T.muted, callback: (v) => clp(v).replace("$\u00a0", "") } }), plugins: { tooltip: { callbacks: { label: (x) => clp(x.raw) } } } } });
+  tablaOrdenable("t-f-orgs", [
+    { k: "o", t: "Organismo", v: (o) => orgNombre(o.org), s: (o) => orgNombre(o.org) },
+    { k: "n", t: "Licitaciones", v: (o) => num(o.n_lic), n: 1, s: (o) => o.n_lic },
+    { k: "m", t: "Monto CLP", v: (o) => clp(o.monto), n: 1, s: (o) => o.monto },
+    { k: "u", t: "% oferente único", v: (o) => barraPct(o.pct_unico), html: 1, s: (o) => o.pct_unico },
+    { k: "c", t: "Su parte del gasto del organismo", v: (o) => barraPct(o.captura), html: 1, s: (o) => o.captura },
+  ], F.orgs, "f-orgs", { k: "m", dir: "desc" });
+  const pares = PARES.filter((x) => x[0] === p);
+  $("t-f-pares").innerHTML = pares.length
+    ? `<div class="pares">${pares.map(([, n, j, w]) => `<span class="marca" title="${j} coincidencias, ganó ${w}">${esc(n)} · ${j} veces</span>`).join("")}</div>`
+    : `<p class="nota">Ninguno con 5 o más coincidencias.</p>`;
+  const { puntaje, senal, org, ofer } = D.c;
+  tablaOrdenable("t-f-lics", [
+    { k: "p", t: "Puntaje", v: (l) => puntajeHtml(puntaje[l.li]), html: 1, s: (l) => puntaje[l.li] * 1e15 + l.monto },
+    { k: "s", t: "Señales", v: (l) => marcas(senal[l.li]), html: 1 },
+    { k: "c", t: "Código", v: (l) => codigo(l.li), code: 1, s: (l) => codigo(l.li) },
+    { k: "n", t: "Licitación", v: (l) => nombreLic(l.li) || "—", s: (l) => nombreLic(l.li) },
+    { k: "o", t: "Organismo", v: (l) => orgNombre(org[l.li]), s: (l) => orgNombre(org[l.li]) },
+    { k: "mes", t: "Mes", v: (l) => MESES[D.c.mes[l.li]], s: (l) => D.c.mes[l.li] },
+    { k: "of", t: "Oferentes", v: (l) => num(ofer[l.li]), n: 1, s: (l) => ofer[l.li] },
+    { k: "m", t: "Monto CLP", v: (l) => clp(l.monto), n: 1, s: (l) => l.monto },
+    { k: "f", t: "Ficha", v: (l) => `<a href="${FICHA(codigo(l.li))}" target="_blank" rel="noopener">Abrir</a>`, html: 1 },
+  ], F.lics, "f-lics", { k: "p", dir: "desc" });
 }
 
 // ---------- carga
@@ -566,8 +825,8 @@ async function iniciar() {
   };
   const json = async (f) => { const r = await fetch(f); if (!r.ok) throw new Error(f + ": HTTP " + r.status); return r.json(); };
   try {
-    const [meta, cat, licB, adjB, al] = await Promise.all([json("meta.json"), json("catalogos.json"), bin("lic.b64.txt"), bin("adj.b64.txt"), json("alertas.json")]);
-    META = meta; CAT = cat; ALERTAS = al;
+    const [meta, cat, licB, adjB, pares] = await Promise.all([json("meta.json"), json("catalogos.json"), bin("lic.b64.txt"), bin("adj.b64.txt"), json("pares.json")]);
+    META = meta; CAT = cat; PARES = pares;
     D = Metricas.cargar(meta, licB, adjB, cat);
     const [y0, m0] = meta.mes0.split("-").map(Number);
     let maxMes = 0;
@@ -593,11 +852,26 @@ async function iniciar() {
     $("f-org").addEventListener("change", aplicar);
     $("f-org").addEventListener("input", () => { if ($("f-org").value === "") aplicar(); });
     $("limpiar").addEventListener("click", () => { $("f-desde").value = "0"; $("f-hasta").value = String(MESES.length - 1); for (const id of ["f-tipo", "f-region", "f-sector", "f-org"]) $(id).value = ""; aplicar(); });
-    document.querySelectorAll(".seg button").forEach((b) => b.addEventListener("click", () => {
+    document.querySelectorAll(".seg button[data-dim]").forEach((b) => b.addEventListener("click", () => {
       estado.dim = b.dataset.dim;
-      document.querySelectorAll(".seg button").forEach((x) => x.setAttribute("aria-pressed", x === b));
+      document.querySelectorAll(".seg button[data-dim]").forEach((x) => x.setAttribute("aria-pressed", x === b));
       render();
     }));
+    document.querySelectorAll("#seg-vista button").forEach((b) => b.addEventListener("click", () => {
+      estado.vista = b.dataset.vista;
+      document.querySelectorAll("#seg-vista button").forEach((x) => x.setAttribute("aria-pressed", x === b));
+      render();
+    }));
+    $("a-req").innerHTML = meta.constantes.SENALES.map(([, e, w], b) => `<button type="button" data-bit="${b}" aria-pressed="false" title="${esc(e)} (${w} pts)">${CORTO[b]}</button>`).join("");
+    $("a-req").querySelectorAll("button").forEach((b) => b.addEventListener("click", () => {
+      estado.req ^= 1 << Number(b.dataset.bit);
+      b.setAttribute("aria-pressed", Boolean(estado.req & (1 << Number(b.dataset.bit))));
+      render();
+    }));
+    let tBuscar;
+    $("a-buscar").addEventListener("input", () => { clearTimeout(tBuscar); tBuscar = setTimeout(render, 200); });
+    for (const id of ["a-min", "a-minlic"]) $(id).addEventListener("change", render);
+    $("f-cerrar").addEventListener("click", () => { estado.prov = null; $("ficha").hidden = true; });
     const redibujar = () => { for (const k of Object.keys(charts)) { charts[k].destroy(); delete charts[k]; } render(); };
     matchMedia("(prefers-color-scheme: dark)").addEventListener("change", redibujar);
     new MutationObserver(redibujar).observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });

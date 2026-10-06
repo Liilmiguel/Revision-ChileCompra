@@ -280,19 +280,130 @@
     };
   }
 
-  // ---------- señales de alerta (solo adjudicadas)
+  // ---------- señales de alerta (solo adjudicadas). Bits de `senal` en el orden de meta.SENALES:
+  // 0 oferente único, 1 competencia descalificada, 2 sobre la oferta más barata, 3 sobre estimado,
+  // 4 plazo corto, 5 precio sobre referencia. `puntaje` es la suma ponderada (dbt).
   function alertasResumen(d, mk) {
-    const { estado, senales } = d.c;
-    const n = [0, 0, 0, 0];
+    const { estado, senal, puntaje, monto } = d.c;
+    const K = d.k;
+    const ns = K.SENALES.length;
+    const prev = new Array(ns).fill(0);
+    let n = 0, alto = 0, medio = 0, bajo = 0, sin = 0, montoAlto = 0;
     for (let i = 0; i < d.n; i++) {
       if (!mk[i] || estado[i] !== ADJ) continue;
-      const s = senales[i];
-      n[(s & 1) + ((s >> 1) & 1) + ((s >> 2) & 1)]++;
+      n++;
+      const p = puntaje[i];
+      if (p >= K.RIESGO_ALTO) { alto++; if (!Number.isNaN(monto[i])) montoAlto += monto[i]; }
+      else if (p >= K.RIESGO_MEDIO) medio++;
+      else if (p > 0) bajo++;
+      else sin++;
+      for (let b = 0; b < ns; b++) if (senal[i] & (1 << b)) prev[b]++;
     }
-    return n;
+    return { n, alto, medio, bajo, sin, monto_alto: montoAlto, prev: prev.map((v) => (n ? v / n : null)) };
   }
 
-  const M = { cargar, mascara, cuantil, mediana, resumen, mensual, competencia, competenciaPor, precio, concentracion, proceso, alertasResumen };
+  // Proveedores: adjudicaciones en CLP de licitaciones adjudicadas (como _adj_riesgo en Python).
+  function proveedoresRiesgo(d, mk, minLic, pares) {
+    const { estado, puntaje, senal, org } = d.c;
+    const A = d.adj;
+    const K = d.k;
+    const ns = K.SENALES.length;
+    const orgTotal = new Map();
+    const P = new Map(); // prov -> { lics:Map(lic->1), monto, montoAlto, orgs:Map(org->{m, unico:Set}) }
+    for (let j = 0; j < A.lic.length; j++) {
+      const li = A.lic[j];
+      if (!mk[li] || estado[li] !== ADJ) continue;
+      const m = A.monto[j], o = org[li], pv = A.prov[j];
+      orgTotal.set(o, (orgTotal.get(o) || 0) + m);
+      let e = P.get(pv);
+      if (!e) P.set(pv, (e = { lics: new Set(), monto: 0, montoAlto: 0, orgs: new Map() }));
+      e.lics.add(li);
+      e.monto += m;
+      if (puntaje[li] >= K.RIESGO_ALTO) e.montoAlto += m;
+      let q = e.orgs.get(o);
+      if (!q) e.orgs.set(o, (q = { m: 0, unico: new Set() }));
+      q.m += m;
+      if (senal[li] & 1) q.unico.add(li);
+    }
+    const acomp = new Map();
+    for (const [g] of pares) acomp.set(g, (acomp.get(g) || 0) + 1);
+    const out = [];
+    for (const [pv, e] of P) {
+      if (e.lics.size < minLic) continue;
+      let suma = 0, alto = 0, unico = 0;
+      const cuenta = new Array(ns).fill(0);
+      for (const li of e.lics) {
+        suma += puntaje[li];
+        if (puntaje[li] >= K.RIESGO_ALTO) alto++;
+        if (senal[li] & 1) unico++;
+        for (let b = 0; b < ns; b++) if (senal[li] & (1 << b)) cuenta[b]++;
+      }
+      let top = null, topM = -1, maxUnico = 0;
+      for (const [o, q] of e.orgs) {
+        if (q.m > topM || (q.m === topM && o < top)) { topM = q.m; top = o; }
+        if (q.unico.size > maxUnico) maxUnico = q.unico.size;
+      }
+      out.push({
+        prov: pv, n_lic: e.lics.size, monto: e.monto, n_org: e.orgs.size, puntaje_medio: suma / e.lics.size,
+        n_alto: alto, monto_alto: e.montoAlto, pct_unico: unico / e.lics.size, org_principal: top,
+        dependencia: topM / e.monto, captura: topM / orgTotal.get(top), max_unico_org: maxUnico,
+        n_acompanantes: acomp.get(pv) || 0, senales: cuenta,
+      });
+    }
+    out.sort((a, b) => b.monto_alto - a.monto_alto || b.n_alto - a.n_alto || b.monto - a.monto);
+    return out;
+  }
+
+  function organismosRiesgo(d, mk, minLic) {
+    const { estado, puntaje, senal, org, monto } = d.c;
+    const K = d.k;
+    const G = new Map();
+    for (let i = 0; i < d.n; i++) {
+      if (!mk[i] || estado[i] !== ADJ) continue;
+      let e = G.get(org[i]);
+      if (!e) G.set(org[i], (e = { n: 0, suma: 0, alto: 0, unico: 0, desc: 0, montoAlto: 0 }));
+      e.n++;
+      e.suma += puntaje[i];
+      if (puntaje[i] >= K.RIESGO_ALTO) { e.alto++; if (!Number.isNaN(monto[i])) e.montoAlto += monto[i]; }
+      if (senal[i] & 1) e.unico++;
+      if (senal[i] & 2) e.desc++;
+    }
+    return [...G.entries()]
+      .filter(([, e]) => e.n >= minLic)
+      .map(([o, e]) => ({ org: o, n: e.n, puntaje_medio: e.suma / e.n, pct_alto: e.alto / e.n, n_alto: e.alto, pct_unico: e.unico / e.n, pct_descalificada: e.desc / e.n, monto_alto: e.montoAlto }))
+      .sort((a, b) => b.pct_alto - a.pct_alto || b.n - a.n);
+  }
+
+  // Ficha de un proveedor: sus licitaciones adjudicadas (en CLP) y los organismos que le compran.
+  function fichaProveedor(d, mk, prov) {
+    const { estado, org, mes } = d.c;
+    const A = d.adj;
+    const orgTotal = new Map();
+    const lics = new Map();
+    const orgs = new Map();
+    for (let j = 0; j < A.lic.length; j++) {
+      const li = A.lic[j];
+      if (!mk[li] || estado[li] !== ADJ) continue;
+      const o = org[li];
+      orgTotal.set(o, (orgTotal.get(o) || 0) + A.monto[j]);
+      if (A.prov[j] !== prov) continue;
+      lics.set(li, (lics.get(li) || 0) + A.monto[j]);
+      let q = orgs.get(o);
+      if (!q) orgs.set(o, (q = { lics: new Set(), m: 0, unico: 0 }));
+      if (!q.lics.has(li) && d.c.senal[li] & 1) q.unico++;
+      q.lics.add(li);
+      q.m += A.monto[j];
+    }
+    const porMes = new Map();
+    for (const [li, m] of lics) porMes.set(mes[li], (porMes.get(mes[li]) || 0) + m);
+    return {
+      lics: [...lics.entries()].map(([li, m]) => ({ li, monto: m })),
+      orgs: [...orgs.entries()].map(([o, q]) => ({ org: o, n_lic: q.lics.size, monto: q.m, pct_unico: q.unico / q.lics.size, captura: q.m / orgTotal.get(o) })).sort((a, b) => b.monto - a.monto),
+      porMes,
+    };
+  }
+
+  const M = { cargar, mascara, cuantil, mediana, resumen, mensual, competencia, competenciaPor, precio, concentracion, proceso, alertasResumen, proveedoresRiesgo, organismosRiesgo, fichaProveedor };
   if (typeof module !== "undefined" && module.exports) module.exports = M;
   else root.Metricas = M;
 })(typeof self !== "undefined" ? self : this);

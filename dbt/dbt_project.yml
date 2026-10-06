@@ -12,6 +12,15 @@ vars:
   # Valor aproximado de la UTM 2024–2026, solo para los topes de int_linea_adjudicada
   # (umbral de 10×: insensible a la variación mensual).
   utm_clp: 70000
+  # Pesos del puntaje de riesgo por licitación (suman 100). Las dos señales de competencia pesan
+  # más porque son las más asociadas a direccionamiento en la literatura (OCDE, Fazekas).
+  senales:
+    oferente_unico: 25
+    competencia_descalificada: 25
+    sobre_oferta_barata: 20
+    sobre_estimado: 15
+    plazo_corto: 10
+    precio_referencia: 5
 
 models:
   observatorio:

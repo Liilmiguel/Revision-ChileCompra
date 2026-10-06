@@ -25,6 +25,8 @@ models:
           ver int_linea_adjudicada); `monto_adjudicado_bruto` las incluye.
       - name: razon_adjudicado_estimado
         description: monto_adjudicado / monto_estimado cuando ambos están en la misma moneda.
+      - name: puntaje_riesgo
+        description: Suma ponderada (0–100) de las seis señales s_*; 0 en licitaciones no adjudicadas.
       - name: es_oferente_unico
         description: Una sola empresa ofertó (por CodigoProveedor). Null si no hay ofertas en la masiva.
 
@@ -56,3 +58,11 @@ models:
     columns:
       - name: codigo_organismo
         tests: [unique, not_null]
+
+  - name: fct_par_proveedores
+    description: >
+      Pares "acompañante": proveedores que ofertan juntos 5+ veces en licitaciones de 2 a 4
+      oferentes, donde el ganador gana 80 %+ y el acompañante nunca.
+    tests:
+      - unique_combination:
+          arguments: {columns: [ganador, acompanante]}

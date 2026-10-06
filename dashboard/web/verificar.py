@@ -33,6 +33,13 @@ const out = casos.map((f) => {
   const mk = M.mascara(d, f);
   const r = M.resumen(d, mk), c = M.competencia(d, mk, 33), p = M.precio(d, mk);
   const k = M.concentracion(d, mk, cat.proveedores), pr = M.proceso(d, mk, 33), a = M.alertasResumen(d, mk);
+  const pares = JSON.parse(fs.readFileSync(dir + "/pares.json"));
+  const provs = {};
+  for (const r of M.proveedoresRiesgo(d, mk, 3, pares).slice(0, 300)) {
+    provs[cat.proveedores[r.prov][0] + "|" + cat.proveedores[r.prov][1]] = r;
+  }
+  const orgs = {};
+  for (const r of M.organismosRiesgo(d, mk, 30)) orgs[cat.organismos[r.org][0]] = r;
   return { n: r.n, adjudicadas: r.adjudicadas, monto_clp: r.monto_clp, organismos: r.organismos,
     pct_unico: c.pct_unico, mediana_oferentes: c.mediana_oferentes, n_comp: c.n,
     precio_n: p.n, precio_mediana: p.mediana, pct_sobre: p.pct_sobre, pct_precio_unitario: p.pct_precio_unitario,
@@ -40,7 +47,8 @@ const out = casos.map((f) => {
     conc_n: k.kpis.n, pct_alta: k.kpis.pct_alta ?? null, mediana_share_top: k.kpis.mediana_share_top ?? null,
     share_top10: k.mercado.share_top10, top1: k.orgs.length ? k.orgs[0].proveedor_top : null,
     proc_n: pr.n, pct_desierta: pr.pct_desierta, dias_adj: pr.mediana_dias_adjudicar, dias_of: pr.mediana_dias_oferta,
-    alertas_2: a[2], alertas_3: a[3] };
+    alto: a.alto, medio: a.medio, bajo: a.bajo, monto_alto: a.monto_alto, prev0: a.prev[0], prev1: a.prev[1],
+    prev2: a.prev[2], prev5: a.prev[5], provs, orgs };
 });
 console.log(JSON.stringify(out));
 """
@@ -51,7 +59,7 @@ def python(obs: Observatorio, f: Filtros) -> dict:
     pc = obs.precio_vs_competencia(f)
     k, mk, pr = obs.concentracion_kpis(f), obs.concentracion_mercado(f), obs.proceso_kpis(f)
     orgs = obs.concentracion_organismos(f)
-    al = obs.alertas_resumen(f).set_index("senales")["n"]
+    al = obs.alertas_resumen(f)
     return {
         "n": r["n"],
         "adjudicadas": r["adjudicadas"],
@@ -74,9 +82,30 @@ def python(obs: Observatorio, f: Filtros) -> dict:
         "pct_desierta": pr["pct_desierta"],
         "dias_adj": pr["mediana_dias_adjudicar"],
         "dias_of": pr["mediana_dias_oferta"],
-        "alertas_2": int(al.get(2, 0)),
-        "alertas_3": int(al.get(3, 0)),
+        "alto": al["alto"],
+        "medio": al["medio"],
+        "bajo": al["bajo"],
+        "monto_alto": al["monto_alto"],
+        "prev0": al["s_oferente_unico"],
+        "prev1": al["s_competencia_descalificada"],
+        "prev2": al["s_sobre_oferta_barata"],
+        "prev5": al["s_precio_referencia"],
     }
+
+
+PROV_COLS = (
+    "n_lic",
+    "monto",
+    "n_alto",
+    "monto_alto",
+    "puntaje_medio",
+    "pct_unico",
+    "dependencia",
+    "captura",
+    "max_unico_org",
+    "n_acompanantes",
+)
+ORG_COLS = ("n", "puntaje_medio", "pct_alto", "pct_unico", "pct_descalificada", "monto_alto")
 
 
 def igual(a, b) -> bool:
@@ -118,13 +147,30 @@ def main() -> None:
         ).stdout
     )
     fallas = 0
+    n_metricas = 0
     for (f, _), j in zip(casos, js, strict=True):
         py = python(obs, f)
         for key, v in py.items():
+            n_metricas += 1
             if not igual(v, j[key]):
                 fallas += 1
                 print(f"DIFERENCIA {f} {key}: python={v} js={j[key]}")
-    print(f"{len(casos)} casos, {len(casos) * len(js[0])} métricas, {fallas} diferencias (meta n={meta['n']})")
+        # Ranking de proveedores (los 50 primeros de Python, cruzados por nombre|rut) y de organismos.
+        for r in obs.proveedores_riesgo(f, min_lic=3).head(50).itertuples():
+            jr = j["provs"].get(f"{r.proveedor}|{r.rut}")
+            for col in PROV_COLS:
+                n_metricas += 1
+                if jr is None or not igual(getattr(r, col), jr[col]):
+                    fallas += 1
+                    print(f"DIFERENCIA proveedor {r.proveedor} {col}: python={getattr(r, col)} js={jr and jr[col]}")
+        for r in obs.organismos_riesgo(f).head(20).itertuples():
+            jr = j["orgs"].get(r.codigo_organismo)
+            for col in ORG_COLS:
+                n_metricas += 1
+                if jr is None or not igual(getattr(r, col), jr[col]):
+                    fallas += 1
+                    print(f"DIFERENCIA organismo {r.organismo} {col}: python={getattr(r, col)} js={jr and jr[col]}")
+    print(f"{len(casos)} casos, {n_metricas} métricas, {fallas} diferencias (meta n={meta['n']})")
     sys.exit(1 if fallas else 0)
 
 

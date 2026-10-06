@@ -7,7 +7,9 @@ columnas binarias (typed arrays) y catálogos JSON:
     lic.bin         una fila por licitación (columnas descritas en meta.json)
     adj.bin         una fila por licitación × proveedor adjudicado en CLP
     catalogos.json  tipos, regiones, sectores, organismos, estados, proveedores
-    alertas.json    licitaciones adjudicadas con 2 o más señales (con nombre y enlace)
+    codigos.txt     CodigoExterno de cada licitación, en el orden de lic.bin (carga diferida)
+    nombres.json    nombre de las licitaciones con puntaje de riesgo ≥ 20 (carga diferida)
+    pares.json      pares "acompañante" de proveedores (fct_par_proveedores)
     meta.json       layout de los binarios, fecha de corte y constantes
 
 Las reglas son las de observatorio.metricas: los números deben coincidir con el
@@ -30,9 +32,17 @@ from pathlib import Path
 import duckdb
 import httpx
 import numpy as np
-import pandas as pd
 
-from observatorio.metricas import DIAS_MADUREZ, RAZON_PRECIO_UNITARIO, RAZON_SOBRE_ESTIMADO, Filtros, Observatorio
+from observatorio.metricas import (
+    DIAS_MADUREZ,
+    RAZON_PRECIO_UNITARIO,
+    RAZON_SOBRE_ESTIMADO,
+    RIESGO_ALTO,
+    RIESGO_MEDIO,
+    SENALES,
+    Filtros,
+    Observatorio,
+)
 
 ROOT = Path(__file__).resolve().parents[2]
 HERE = Path(__file__).resolve().parent
@@ -61,19 +71,13 @@ def catalogo(values) -> tuple[list[str], dict]:
 def main(out: Path) -> None:
     out.mkdir(parents=True, exist_ok=True)
     db = duckdb.connect()
-    for name in ("licitaciones", "adjudicaciones", "proveedores"):
+    for name in ("licitaciones", "adjudicaciones", "proveedores", "pares"):
         db.execute(f"create view {name} as select * from read_parquet('{SNAP / (name + '.parquet')}')")
     corte = db.execute("select max(fecha_publicacion) from licitaciones").fetchone()[0]
     lic = db.execute(
         f"""
-        with p10 as (
-            select tipo, quantile_cont(dias_publicacion_cierre, 0.10) p10
-            from licitaciones where dias_publicacion_cierre >= 0 group by 1
-        )
-        select l.*, p10.p10,
-               fecha_cierre <= date '{corte}' - interval {DIAS_MADUREZ} day as madura
-        from licitaciones l left join p10 using (tipo)
-        order by codigo_externo
+        select *, fecha_cierre <= date '{corte}' - interval {DIAS_MADUREZ} day as madura
+        from licitaciones order by codigo_externo
         """
     ).df()
     n = len(lic)
@@ -103,12 +107,11 @@ def main(out: Path) -> None:
     adjudicada = (lic["estado_grupo"] == "Adjudicada").to_numpy()
     ofer = lic["n_proveedores_oferentes"].fillna(0).clip(upper=255).astype(np.uint8).to_numpy()
     dofer = lic["dias_publicacion_cierre"].to_numpy(dtype="float64", na_value=np.nan)
-    p10 = lic["p10"].to_numpy(dtype="float64", na_value=np.nan)
-    s_unico = adjudicada & (lic["es_oferente_unico"].fillna(False).to_numpy(dtype=bool))
-    s_sobre = adjudicada & np.nan_to_num(razon > RAZON_SOBRE_ESTIMADO, nan=False)
-    with np.errstate(invalid="ignore"):
-        s_plazo = adjudicada & np.nan_to_num(dofer < p10, nan=False)
-    senales = s_unico.astype(np.uint8) | (s_sobre.astype(np.uint8) << 1) | (s_plazo.astype(np.uint8) << 2)
+    del dofer
+    # Señales de riesgo (dbt, int_licitacion_senales) como bits, en el orden de SENALES.
+    senal = np.zeros(len(lic), dtype=np.uint8)
+    for bit, (col, _, _) in enumerate(SENALES):
+        senal |= (lic[col].fillna(False).to_numpy(dtype=bool) & adjudicada).astype(np.uint8) << bit
     monto_clp = np.where(
         (lic["moneda_adjudicada"] == "CLP").to_numpy(),
         lic["monto_adjudicado"].to_numpy(dtype="float64", na_value=np.nan),
@@ -123,7 +126,8 @@ def main(out: Path) -> None:
         "org": lic["codigo_organismo"].map(org_idx).to_numpy(np.uint16),
         "estado": lic["estado_grupo"].map({e: i for i, e in enumerate(ESTADOS)}).fillna(5).to_numpy(np.uint8),
         "ofer": ofer,
-        "senales": senales.astype(np.uint8),
+        "senal": senal,
+        "puntaje": lic["puntaje_riesgo"].fillna(0).to_numpy(np.uint8),
         "madura": lic["madura"].fillna(False).to_numpy(np.uint8),
         "dofer": i16("dias_publicacion_cierre"),
         "dadj": i16("dias_cierre_adjudicacion"),
@@ -158,28 +162,29 @@ def main(out: Path) -> None:
         fh.write(a_lic.tobytes())
         fh.write(a_prov.tobytes())
         fh.write(a_monto.tobytes())
-    nombres = db.execute("select codigo_proveedor, nombre_proveedor, rut_proveedor from proveedores").df()
+    nombres = db.execute(
+        "select codigo_proveedor, nombre_proveedor, rut_proveedor, n_licitaciones_ofertadas from proveedores"
+    ).df()
     nombres = nombres.set_index("codigo_proveedor")
     proveedores = [
-        [str(nombres["nombre_proveedor"].get(p) or p), str(nombres["rut_proveedor"].get(p) or "")] for p in provs
+        [
+            str(nombres["nombre_proveedor"].get(p) or p),
+            str(nombres["rut_proveedor"].get(p) or ""),
+            int(nombres["n_licitaciones_ofertadas"].get(p) or 0),
+        ]
+        for p in provs
+    ]
+    pares = [
+        [prov_idx[g], str(nombres["nombre_proveedor"].get(a) or a), int(j), int(w)]
+        for g, a, j, w in db.execute("select ganador, acompanante, juntos, gana_ganador from pares").fetchall()
+        if g in prov_idx
     ]
 
-    # Tabla de alertas: solo 2 o más señales (las de 1 señal son ~68 mil y no aportan a la lista).
-    bits = senales.astype(int)
-    n_sen = (bits & 1) + ((bits >> 1) & 1) + ((bits >> 2) & 1)
-    al = lic.loc[n_sen >= 2]
-    alertas = [
-        [
-            int(codigo_idx[r.codigo_externo]),
-            r.codigo_externo,
-            r.nombre,
-            None if pd.isna(r.monto_adjudicado) else float(r.monto_adjudicado),
-            None if pd.isna(r.moneda_adjudicada) else r.moneda_adjudicada,
-            None if pd.isna(r.monto_estimado) else float(r.monto_estimado),
-            None if pd.isna(r.link) else r.link,
-        ]
-        for r in al.itertuples()
-    ]
+    # Textos de carga diferida: códigos de todas las licitaciones y nombres de las que tienen señales
+    # relevantes (puntaje ≥ RIESGO_MEDIO). El enlace a la ficha se deriva del código.
+    (out / "codigos.txt").write_text("\n".join(lic["codigo_externo"]))
+    con_nombre = lic.index[lic["puntaje_riesgo"].fillna(0).to_numpy() >= RIESGO_MEDIO]
+    nombres_lic = [[int(i), lic.at[i, "nombre"]] for i in con_nombre]
 
     (out / "catalogos.json").write_text(
         json.dumps(
@@ -196,7 +201,8 @@ def main(out: Path) -> None:
         )
     )
     # allow_nan=False: un NaN en el JSON rompe JSON.parse en el navegador.
-    (out / "alertas.json").write_text(json.dumps(alertas, ensure_ascii=False, separators=(",", ":"), allow_nan=False))
+    for name, obj in (("nombres", nombres_lic), ("pares", pares)):
+        (out / f"{name}.json").write_text(json.dumps(obj, ensure_ascii=False, separators=(",", ":"), allow_nan=False))
     snap_meta = json.loads((SNAP / "meta.json").read_text())
     (out / "meta.json").write_text(
         json.dumps(
@@ -213,6 +219,9 @@ def main(out: Path) -> None:
                     "RAZON_SOBRE_ESTIMADO": RAZON_SOBRE_ESTIMADO,
                     "RAZON_PRECIO_UNITARIO": RAZON_PRECIO_UNITARIO,
                     "MIN_GRUPO": 30,
+                    "RIESGO_ALTO": RIESGO_ALTO,
+                    "RIESGO_MEDIO": RIESGO_MEDIO,
+                    "SENALES": [[c, e, w] for c, e, w in SENALES],
                 },
             },
             indent=1,

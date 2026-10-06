@@ -10,7 +10,7 @@ from pathlib import Path
 
 import pandas as pd
 
-from observatorio.metricas import DIAS_MADUREZ, MIN_GRUPO, Filtros, Observatorio
+from observatorio.metricas import DIAS_MADUREZ, MIN_GRUPO, RIESGO_ALTO, SENALES, Filtros, Observatorio
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -21,6 +21,10 @@ def pct(x: float, dec: int = 1) -> str:
 
 def n(x: float, dec: int = 0) -> str:
     return f"{x:,.{dec}f}".replace(",", "X").replace(".", ",").replace("X", ".")
+
+
+def clp(x: float) -> str:
+    return f"$ {n(x / 1e9, 1)} mil millones" if x >= 1e9 else f"$ {n(x / 1e6, 1)} millones"
 
 
 def md(df: pd.DataFrame, formatos: dict[str, callable]) -> str:
@@ -48,6 +52,9 @@ def main() -> None:
     proc_tipo = obs.proceso_por_tipo(f)
     orgs = obs.concentracion_organismos(f)
     alert = obs.alertas_resumen(f)
+    prov = obs.proveedores_riesgo(f)
+    orgs_r = obs.organismos_riesgo(f)
+    pares = obs.q("select * from pares")
     meses = obs.opciones()["meses"].iloc[0]
     mensual = obs.mensual(f)
     antes = mensual.loc[mensual["mes"] < pd.Timestamp("2024-12-01"), "publicadas"].mean()
@@ -145,10 +152,70 @@ def main() -> None:
         "",
         "## Señales de alerta",
         "",
-        "Adjudicadas según cuántas señales acumulan (oferente único, >20 % sobre estimado, plazo en el "
-        "10 % más corto de su tipo):",
+        "Cada licitación adjudicada suma un puntaje de 0 a 100 con seis señales ponderadas "
+        f"(definiciones en `docs/fase3_preguntas.md`). **{n(alert['alto'])} licitaciones tienen riesgo alto** "
+        f"(puntaje ≥ {RIESGO_ALTO}, {pct(alert['alto'] / alert['n'], 2)} de las adjudicadas) y suman "
+        f"$ {n(alert['monto_alto'] / 1e9)} mil millones; {n(alert['medio'])} tienen riesgo medio, casi todas solo "
+        "por oferente único.",
         "",
-        md(alert, {"n": n}),
+        md(
+            pd.DataFrame([{"señal": e, "peso": w, "% de las adjudicadas": alert[c]} for c, e, w in SENALES]),
+            {"% de las adjudicadas": pct},
+        ),
+        "",
+        "### Proveedores con más monto en licitaciones de riesgo alto",
+        "",
+        "Dependencia: parte de sus ingresos que viene de su organismo principal. Captura: parte del gasto de ese "
+        "organismo que se lleva. Una fila aquí no implica irregularidad del proveedor: las señales describen "
+        "cómo se hizo la licitación.",
+        "",
+        md(
+            prov.head(15)[
+                [
+                    "proveedor",
+                    "n_lic",
+                    "n_alto",
+                    "monto_alto",
+                    "pct_unico",
+                    "organismo_principal",
+                    "dependencia",
+                    "captura",
+                    "n_acompanantes",
+                ]
+            ].rename(
+                columns={
+                    "n_lic": "ganadas",
+                    "n_alto": "riesgo alto",
+                    "monto_alto": "monto riesgo alto",
+                    "pct_unico": "% único",
+                    "organismo_principal": "organismo principal",
+                    "n_acompanantes": "acompañantes",
+                }
+            ),
+            {
+                "monto riesgo alto": clp,
+                "% único": lambda v: pct(v, 0),
+                "dependencia": lambda v: pct(v, 0),
+                "captura": lambda v: pct(v, 0),
+            },
+        ),
+        "",
+        "### Organismos con mayor proporción de riesgo alto",
+        "",
+        md(
+            orgs_r.head(10)[["organismo", "n", "pct_alto", "pct_unico", "pct_descalificada"]].rename(
+                columns={
+                    "n": "adjudicadas",
+                    "pct_alto": "% riesgo alto",
+                    "pct_unico": "% único",
+                    "pct_descalificada": "% descalificada",
+                }
+            ),
+            {"adjudicadas": n, "% riesgo alto": pct, "% único": pct, "% descalificada": pct},
+        ),
+        "",
+        f'Pares "acompañante" (ofertan juntos 5+ veces en licitaciones de 2 a 4 oferentes, uno gana 80 %+ y el '
+        f"otro nunca): {n(len(pares))}. Pueden ser competencia simulada o mercados de nicho con pocos actores.",
         "",
     ]
     path = ROOT / "docs" / "fase3_respuestas.md"

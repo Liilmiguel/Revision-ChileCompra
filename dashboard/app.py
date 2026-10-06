@@ -18,6 +18,9 @@ from observatorio.metricas import (
     MIN_GRUPO,
     RAZON_PRECIO_UNITARIO,
     RAZON_SOBRE_ESTIMADO,
+    RIESGO_ALTO,
+    RIESGO_MEDIO,
+    SENALES,
     Filtros,
     Observatorio,
 )
@@ -581,65 +584,238 @@ with tabs[4]:
 
 # ---------------------------------------------------------------- alertas
 
+ETIQ = {c: e for c, e, _ in SENALES}
+CORTO = {
+    "s_oferente_unico": "Único",
+    "s_competencia_descalificada": "Descalif.",
+    "s_sobre_oferta_barata": "Sobre más barata",
+    "s_sobre_estimado": "Sobre estimado",
+    "s_plazo_corto": "Plazo corto",
+    "s_precio_referencia": "Precio ref.",
+}
+
 with tabs[5]:
     st.subheader("Señales de alerta")
     st.markdown(
-        "Licitaciones adjudicadas con una o más señales: **oferente único**, **adjudicado más de "
-        f"{SOBRE_PCT} % sobre lo estimado** y **plazo de ofertas en el 10 % más corto "
-        "de su tipo**. Una señal no prueba una irregularidad: indica dónde vale la pena revisar el expediente."
+        "Cada licitación adjudicada recibe un **puntaje de riesgo de 0 a 100** que suma seis señales ponderadas. "
+        f"**Riesgo alto** = {RIESGO_ALTO} o más (al menos dos señales, una fuerte). Una señal no prueba una "
+        "irregularidad: indica dónde revisar el expediente."
     )
     ar = obs.alertas_resumen(F)
-    tot = ar["n"].sum()
+    n_adj = ar["n"] or 0
     c = st.columns(4)
-    for i, k in enumerate((0, 1, 2, 3)):
-        n = int(ar.loc[ar["senales"] == k, "n"].sum())
-        frac = n / tot if tot else None
-        etiqueta = "<\u00a00,1\u00a0%" if frac is not None and 0 < frac < 0.001 else pct(frac)
-        c[i].metric(f"{k} señal{'es' if k != 1 else ''} · {etiqueta}", num(n))
-    al = obs.alertas(F)
-    st.dataframe(
-        al,
-        width="stretch",
-        hide_index=True,
-        column_order=[
-            "senales",
-            "s_oferente_unico",
-            "s_sobre_estimado",
-            "s_plazo_corto",
-            "codigo_externo",
-            "nombre",
-            "nombre_organismo",
-            "monto_adjudicado",
-            "moneda_adjudicada",
-            "razon_adjudicado_estimado",
-            "n_proveedores_oferentes",
-            "dias_publicacion_cierre",
-            "tipo_descripcion",
-            "fecha_publicacion",
-            "monto_estimado",
-            "link",
-        ],
-        height=520,
-        column_config={
-            "codigo_externo": "Código",
-            "nombre": "Licitación",
-            "nombre_organismo": "Organismo",
-            "tipo_descripcion": "Tipo",
-            "fecha_publicacion": st.column_config.DateColumn("Publicada"),
-            "dias_publicacion_cierre": "Días para ofertar",
-            "n_proveedores_oferentes": "Oferentes",
-            "monto_estimado": st.column_config.NumberColumn("Estimado", format="localized"),
-            "monto_adjudicado": st.column_config.NumberColumn("Adjudicado", format="localized"),
-            "moneda_adjudicada": "Moneda",
-            "razon_adjudicado_estimado": st.column_config.NumberColumn("Adj./Est.", format="percent"),
-            "s_oferente_unico": st.column_config.CheckboxColumn("Oferente único"),
-            "s_sobre_estimado": st.column_config.CheckboxColumn("Sobre estimado"),
-            "s_plazo_corto": st.column_config.CheckboxColumn("Plazo corto"),
-            "senales": st.column_config.NumberColumn("Señales"),
-            "link": st.column_config.LinkColumn("Ficha", display_text="Abrir"),
-        },
+    c[0].metric(
+        f"Riesgo alto (≥ {RIESGO_ALTO})", num(ar["alto"]), pct(ar["alto"] / n_adj if n_adj else None), delta_color="off"
     )
-    st.download_button("Descargar CSV", al.to_csv(index=False).encode("utf-8"), "alertas.csv", "text/csv")
+    c[1].metric(
+        f"Medio ({RIESGO_MEDIO}–{RIESGO_ALTO - 1})",
+        num(ar["medio"]),
+        pct(ar["medio"] / n_adj if n_adj else None),
+        delta_color="off",
+    )
+    c[2].metric("Bajo", num(ar["bajo"]), pct(ar["bajo"] / n_adj if n_adj else None), delta_color="off")
+    c[3].metric("Monto con riesgo alto (CLP)", clp(ar["monto_alto"]))
+
+    prev = pd.DataFrame([{"señal": e, "peso": w, "pct": ar[col]} for col, e, w in SENALES])
+    fig = go.Figure(
+        go.Bar(
+            y=[f"{r.señal} · {r.peso} pts" for r in prev.itertuples()][::-1],
+            x=prev["pct"][::-1],
+            orientation="h",
+            marker=dict(color=C["s2"], cornerradius=4),
+            hovertemplate="%{y}<br>%{x:.1%} de las adjudicadas<extra></extra>",
+        )
+    )
+    fig.update_xaxes(tickformat=".0%")
+    st.plotly_chart(layout(fig, height=280, title="Frecuencia de cada señal entre las adjudicadas"), width="stretch")
+
+    vista = st.radio("Agrupar por", ["Licitación", "Proveedor", "Organismo"], horizontal=True)
+    if vista == "Licitación":
+        a, b = st.columns([1, 2])
+        min_p = a.select_slider("Puntaje mínimo", options=list(range(5, 60, 5)), value=RIESGO_ALTO)
+        requeridas = b.multiselect("Debe incluir", [col for col, _, _ in SENALES], format_func=ETIQ.get)
+        al = obs.alertas(F, min_puntaje=min_p, limite=2000)
+        for col in requeridas:
+            al = al[al[col]]
+        st.caption(f"{num(len(al))} licitaciones (máximo 2.000, ordenadas por puntaje y monto)")
+        st.dataframe(
+            al,
+            width="stretch",
+            hide_index=True,
+            height=520,
+            column_order=[
+                "puntaje_riesgo",
+                *[c for c, _, _ in SENALES],
+                "codigo_externo",
+                "nombre",
+                "nombre_organismo",
+                "monto_adjudicado",
+                "moneda_adjudicada",
+                "razon_adjudicado_estimado",
+                "razon_sobre_mas_barata",
+                "n_proveedores_oferentes",
+                "dias_publicacion_cierre",
+                "link",
+            ],
+            column_config={
+                "puntaje_riesgo": st.column_config.ProgressColumn("Puntaje", min_value=0, max_value=100, format="%d"),
+                **{c: st.column_config.CheckboxColumn(CORTO[c], help=ETIQ[c]) for c, _, _ in SENALES},
+                "codigo_externo": "Código",
+                "nombre": "Licitación",
+                "nombre_organismo": "Organismo",
+                "monto_adjudicado": st.column_config.NumberColumn("Adjudicado", format="localized"),
+                "moneda_adjudicada": "Moneda",
+                "razon_adjudicado_estimado": st.column_config.NumberColumn("Adj./Est.", format="percent"),
+                "razon_sobre_mas_barata": st.column_config.NumberColumn("Pagado sobre la más barata", format="percent"),
+                "n_proveedores_oferentes": "Oferentes",
+                "dias_publicacion_cierre": "Días para ofertar",
+                "link": st.column_config.LinkColumn("Ficha", display_text="Abrir"),
+            },
+        )
+        st.download_button("Descargar CSV", al.to_csv(index=False).encode("utf-8"), "alertas.csv", "text/csv")
+
+    elif vista == "Proveedor":
+        pr = obs.proveedores_riesgo(F, min_lic=3)
+        st.caption(
+            f"{num(len(pr))} proveedores con 3 o más licitaciones ganadas en CLP. **Dependencia**: parte de sus "
+            "ingresos que viene de su organismo principal. **Captura**: parte del gasto de ese organismo que se "
+            "lleva. **Sin competencia en un organismo**: máximo de licitaciones ganadas como oferente único en un "
+            "mismo organismo. **Acompañantes**: proveedores que ofertan junto a él una y otra vez sin ganar nunca."
+        )
+        st.dataframe(
+            pr,
+            width="stretch",
+            hide_index=True,
+            height=480,
+            column_order=[
+                "proveedor",
+                "rut",
+                "n_lic",
+                "monto",
+                "n_alto",
+                "monto_alto",
+                "puntaje_medio",
+                "pct_unico",
+                "organismo_principal",
+                "dependencia",
+                "captura",
+                "max_unico_org",
+                "n_acompanantes",
+                "n_ofertadas",
+            ],
+            column_config={
+                "proveedor": "Proveedor",
+                "rut": "RUT",
+                "n_lic": "Ganadas",
+                "monto": st.column_config.NumberColumn("Monto CLP", format="localized"),
+                "n_alto": "Riesgo alto",
+                "monto_alto": st.column_config.NumberColumn("Monto riesgo alto", format="localized"),
+                "puntaje_medio": st.column_config.NumberColumn("Puntaje medio", format="%.1f"),
+                "pct_unico": st.column_config.NumberColumn("% oferente único", format="percent"),
+                "organismo_principal": "Organismo principal",
+                "dependencia": st.column_config.ProgressColumn(
+                    "Dependencia", min_value=0, max_value=1, format="percent"
+                ),
+                "captura": st.column_config.ProgressColumn("Captura", min_value=0, max_value=1, format="percent"),
+                "max_unico_org": "Sin competencia en un organismo",
+                "n_acompanantes": "Acompañantes",
+                "n_ofertadas": "Ofertó (todo el periodo)",
+            },
+        )
+        st.download_button(
+            "Descargar CSV", pr.to_csv(index=False).encode("utf-8"), "proveedores_riesgo.csv", "text/csv"
+        )
+        opciones = pr.head(500)
+        elegido = st.selectbox(
+            "Ver ficha de un proveedor",
+            opciones["codigo_proveedor"].tolist(),
+            format_func=lambda c: f"{opciones.set_index('codigo_proveedor').loc[c, 'proveedor']}",
+            index=None,
+            placeholder="Elige un proveedor de la lista (los 500 primeros)",
+        )
+        if elegido:
+            fila = pr.set_index("codigo_proveedor").loc[elegido]
+            ficha = obs.proveedor(elegido, F)
+            st.markdown(f"#### {fila['proveedor']} · {fila['rut']}")
+            c = st.columns(5)
+            c[0].metric("Licitaciones ganadas", num(fila["n_lic"]))
+            c[1].metric("Monto CLP", clp(fila["monto"]))
+            c[2].metric("Con riesgo alto", num(fila["n_alto"]))
+            c[3].metric("Oferente único", pct(fila["pct_unico"]))
+            c[4].metric("Organismos", num(fila["n_org"]))
+            a, b = st.columns(2)
+            a.markdown("**Organismos que le adjudican**")
+            a.dataframe(
+                ficha["organismos"],
+                width="stretch",
+                hide_index=True,
+                column_config={
+                    "organismo": "Organismo",
+                    "n_lic": "Licitaciones",
+                    "monto": st.column_config.NumberColumn("Monto CLP", format="localized"),
+                    "pct_unico": st.column_config.NumberColumn("% único", format="percent"),
+                    "captura": st.column_config.ProgressColumn(
+                        "Su parte del gasto", min_value=0, max_value=1, format="percent"
+                    ),
+                },
+            )
+            b.markdown("**Acompañantes** (ofertan con él, nunca ganan)")
+            if ficha["acompanantes"].empty:
+                b.caption("Ninguno con 5 o más coincidencias.")
+            else:
+                b.dataframe(
+                    ficha["acompanantes"],
+                    width="stretch",
+                    hide_index=True,
+                    column_config={
+                        "acompanante": "Proveedor",
+                        "juntos": "Coincidencias",
+                        "gana_ganador": f"Ganó {fila['proveedor'][:20]}",
+                    },
+                )
+            st.markdown("**Licitaciones ganadas**")
+            st.dataframe(
+                ficha["licitaciones"],
+                width="stretch",
+                hide_index=True,
+                height=360,
+                column_config={
+                    "puntaje_riesgo": st.column_config.ProgressColumn(
+                        "Puntaje", min_value=0, max_value=100, format="%d"
+                    ),
+                    **{c: st.column_config.CheckboxColumn(CORTO[c], help=ETIQ[c]) for c, _, _ in SENALES},
+                    "codigo_externo": "Código",
+                    "nombre": "Licitación",
+                    "nombre_organismo": "Organismo",
+                    "fecha_publicacion": st.column_config.DateColumn("Publicada"),
+                    "n_proveedores_oferentes": "Oferentes",
+                    "monto": st.column_config.NumberColumn("Monto CLP", format="localized"),
+                    "link": st.column_config.LinkColumn("Ficha", display_text="Abrir"),
+                },
+            )
+
+    else:
+        orr = obs.organismos_riesgo(F)
+        st.caption(
+            f"{num(len(orr))} organismos con al menos {MIN_GRUPO} licitaciones adjudicadas, "
+            "ordenados por % de riesgo alto."
+        )
+        st.dataframe(
+            orr.drop(columns="codigo_organismo"),
+            width="stretch",
+            hide_index=True,
+            height=520,
+            column_config={
+                "organismo": "Organismo",
+                "n": "Adjudicadas",
+                "puntaje_medio": st.column_config.NumberColumn("Puntaje medio", format="%.1f"),
+                "pct_alto": st.column_config.NumberColumn("% riesgo alto", format="percent"),
+                "n_alto": "Riesgo alto",
+                "pct_unico": st.column_config.NumberColumn("% oferente único", format="percent"),
+                "pct_descalificada": st.column_config.NumberColumn("% competencia descalificada", format="percent"),
+                "monto_alto": st.column_config.NumberColumn("Monto riesgo alto", format="localized"),
+            },
+        )
 
 # ---------------------------------------------------------------- metodología
 

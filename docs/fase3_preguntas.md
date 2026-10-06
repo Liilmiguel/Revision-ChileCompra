@@ -47,9 +47,46 @@ pueden contestar con los datos disponibles sin supuestos fuertes.
   Solo organismos con al menos 30 licitaciones adjudicadas.
 - **Licitaciones maduras** (pregunta 4): cerradas hace más de 120 días. Así las
   recientes, que aún pueden adjudicarse, no inflan las tasas de fracaso.
-- **Señales de alerta**: oferente único; adjudicado más de 20 % sobre lo estimado;
-  plazo de recepción de ofertas en el 10 % más corto de su tipo de licitación. Una
-  señal **no prueba** una irregularidad: indica dónde revisar el expediente.
+
+## Señales de alerta y puntaje de riesgo
+
+Cada licitación adjudicada recibe un **puntaje de 0 a 100** que suma seis señales
+ponderadas (`dbt/models/intermediate/int_licitacion_senales.sql`; pesos en
+`dbt_project.yml`, var `senales`). Las dos de competencia pesan más porque son las más
+asociadas a direccionamiento en la literatura (indicadores de la OCDE y de Fazekas sobre
+riesgo de corrupción en compras públicas).
+
+| señal | peso | definición | % de las adjudicadas |
+|---|---|---|---|
+| Oferente único | 25 | un solo proveedor ofertó | 21,6 % |
+| Competencia descalificada | 25 | hubo 2+ oferentes y todos menos el ganador fueron rechazados | 6,1 % |
+| Pagó 50 % más que la oferta más barata | 20 | en líneas con 2+ ofertas aceptadas, lo pagado sobre la aceptada más barata es más de un tercio del monto (se ignoran ofertas "baratas" bajo 30 % de la ganadora, casi siempre errores como $1) | 4,9 % |
+| Adjudicado más de 20 % sobre lo estimado | 15 | razón adjudicado / estimado > 1,2 en la misma moneda | 1,3 % |
+| Plazo de ofertas muy corto | 10 | días de publicación a cierre en el 10 % más corto de su tipo | 9,2 % |
+| Precio unitario más de 5 veces la referencia | 5 | precio ganador > 5 × mediana del mismo producto (código ONU × unidad), solo bienes con 30+ licitaciones y precios homogéneos (p75/p25 < 2,5) | 1,2 % |
+
+- **Riesgo alto**: puntaje ≥ 40, es decir, al menos dos señales y una de ellas fuerte
+  (1.169 licitaciones, 0,45 % de las adjudicadas). **Medio**: 20 a 39; casi siempre solo
+  oferente único.
+- Se descartaron dos candidatas por ruido: "la ganadora no es la más barata" por línea
+  (28 % de las líneas comparables: muchas licitaciones evalúan calidad técnica) y precio
+  de referencia sin restricciones (los códigos ONU son categorías amplias: 23 % de las
+  líneas superaba 3 × la mediana).
+- Una señal **no prueba** una irregularidad: indica dónde revisar el expediente.
+
+### Por proveedor
+
+Agregan las licitaciones adjudicadas que ganó cada proveedor (montos en CLP):
+
+- **Riesgo alto** y **monto en riesgo alto**: cuántas de sus licitaciones tienen puntaje ≥ 40.
+- **Dependencia**: parte de sus ingresos que viene de su organismo principal.
+- **Captura**: parte del gasto de ese organismo que se lleva el proveedor.
+- **Sin competencia en un organismo**: máximo de licitaciones ganadas como oferente único
+  en un mismo organismo (relación recurrente sin competencia).
+- **Acompañantes** (`fct_par_proveedores`): proveedores que ofertaron junto a él 5+ veces
+  en licitaciones de 2 a 4 oferentes sin ganarle nunca, mientras él ganó 80 %+. Es la señal
+  clásica de competencia simulada, pero también aparece en mercados de nicho (372 pares).
+- **Tasa de éxito**: licitaciones ganadas / licitaciones en que ofertó en todo el periodo.
 
 ## Limitaciones
 
