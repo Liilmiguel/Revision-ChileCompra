@@ -88,6 +88,53 @@ Agregan las licitaciones adjudicadas que ganó cada proveedor (montos en CLP):
   clásica de competencia simulada, pero también aparece en mercados de nicho (372 pares).
 - **Tasa de éxito**: licitaciones ganadas / licitaciones en que ofertó en todo el periodo.
 
+## Rubros, Explorar y señales complementarias
+
+- **Rubro** (`int_licitacion_rubro`): niveles 1 y 2 de la clasificación de productos de
+  ChileCompra (basada en UNSPSC) de cada línea. El filtro de la web incluye una licitación
+  si **alguna** de sus líneas es del rubro; «rubro principal» es el de más líneas. Se omiten
+  los rubros con menos de 30 licitaciones (valores dañados en origen, como
+  «EQdoPOS, PLATAFORMAS…» en marzo de 2026). Ejemplo: rubro «Tecnologías de la información,
+  telecomunicaciones y radiodifusión» = 18.227 licitaciones; con la palabra «radio», 246.
+- **Explorar**: las 322.040 licitaciones, con o sin señales, con búsqueda por texto (sin
+  tildes) en nombre, código y organismo. Los nombres se cargan comprimidos (~6,5 MB).
+- **Señales complementarias** (`int_licitacion_senales_extra`; no suman al puntaje, para que
+  siga siendo comparable con las respuestas de la Fase 3):
+  - *Ofertas idénticas*: dos o más proveedores ofertan exactamente el mismo total en pesos,
+    desde $100.000 y **no múltiplo de $1.000**. Sin esta condición marcaba 13.449 licitaciones
+    (montos redondos que coinciden por azar); con ella, 3.255. Ejemplo: dos proveedores con
+    $14.813.305 en la misma licitación.
+  - *Fraccionamiento*: L1 / E2 (< 100 UTM) adjudicada a un proveedor que en ±30 días ganó otras
+    2+ del mismo organismo y rubro, sumando más de 100 UTM (2.032 licitaciones).
+  - Descartada: *estimado justo bajo el tope del tipo*. En L1 los estimados se acumulan en
+    montos redondos ($5 y $6 millones), no pegados al tope: entre 95 % y 100 % del tope hay
+    menos licitaciones que entre 90 % y 95 %.
+
+## Compras Ágiles y tratos directos (pestaña «Compras directas»)
+
+Las licitaciones son solo una parte del gasto: en 12 meses (oct. 2025 – sep. 2026) hubo
+723.029 Compras Ágiles ($1,0 billones) y 117.803 tratos directos ($2,5 billones).
+`src/observatorio/compras.py` (`make compras`, sin base de datos) lee la descarga masiva de
+órdenes de compra (`oc-da`, ~100 MB por mes, una fila por ítem), agrega por orden y omite las
+canceladas.
+
+- **Tope de la Compra Ágil medido en los datos**: percentil 99,95 de los montos de cada mes.
+  Sube de $6,93 a $7,17 millones entre octubre de 2025 y septiembre de 2026, al ritmo de la
+  UTM: es 100 UTM **con impuestos**.
+- **Acumulación bajo el tope**: entre 98 % y 100 % del tope hay 7.591 compras, más del doble
+  que en cualquier tramo de 2 % entre 50 % y 90 % (~3.000). Los montos se ajustan para no
+  pasar el tope. Por organismo se compara su proporción en 90–100 % con la nacional (3,2 %).
+- **Fraccionamiento**: 3+ Compras Ágiles del mismo organismo al mismo proveedor y rubro en
+  30 días que juntas superan el tope. Las órdenes marcadas consecutivas forman un episodio:
+  6.534 episodios, 52.284 órdenes, $147 mil millones. En hospitales suelen ser compras
+  recurrentes de insumos que debieron ir por licitación de suministro o convenio marco
+  (p. ej. 354 Compras Ágiles de la Universidad de Chile a un mismo proveedor de insumos
+  médicos en un año).
+- **Trato directo recurrente**: 5+ del mismo organismo al mismo proveedor (5.261 pares).
+- **Trato directo de monto alto**: sobre 1.000 UTM (2.533), para revisar que la causal
+  (proveedor único, emergencia) calce con lo comprado. La causal más usada es «emergencia,
+  urgencia o imprevisto» (33.585 órdenes).
+
 ## Licitaciones en curso (pestaña «En curso» de la versión web)
 
 Las señales anteriores se calculan cuando la licitación ya está adjudicada: sirven para

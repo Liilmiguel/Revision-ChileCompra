@@ -13,6 +13,7 @@ columnas binarias (typed arrays) y catálogos JSON:
     nombres.json    nombre de las licitaciones con puntaje de riesgo ≥ 20 (carga diferida)
     pares.json      pares "acompañante" de proveedores (fct_par_proveedores)
     meta.json       layout de los binarios, fecha de corte y constantes
+    compras.json    Compras Ágiles y tratos directos (copia de data/compras/compras.json)
     vivo.json       licitaciones en curso (copia de data/vivo/vivo.json, ver observatorio.vivo)
 
 Las reglas son las de observatorio.metricas: los números deben coincidir con el
@@ -316,6 +317,12 @@ def main(out: Path) -> None:
     # base64 como .txt (la página los decodifica). Los .bin quedan para verificar.py.
     for name in ("lic", "adj"):
         (out / f"{name}.b64.txt").write_bytes(base64.b64encode((out / f"{name}.bin").read_bytes()))
+    # Compras Ágiles y tratos directos (observatorio compras), si existe.
+    compras = ROOT / "data" / "compras" / "compras.json"
+    if compras.exists():
+        shutil.copy(compras, out / "compras.json")
+    else:
+        print("aviso: falta data/compras/compras.json (make compras); la pestaña Compras directas no tendrá datos")
     # Licitaciones en curso (observatorio vivo): se publica la última generada, si existe.
     vivo = ROOT / "data" / "vivo" / "vivo.json"
     if vivo.exists():

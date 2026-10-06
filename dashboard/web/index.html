@@ -181,6 +181,7 @@ footer { margin-top: 32px; font-size: 12.5px; color: var(--muted); }
     <button role="tab" data-tab="alertas">Señales de alerta</button>
     <button role="tab" data-tab="vivo">En curso</button>
     <button role="tab" data-tab="explorar">Explorar</button>
+    <button role="tab" data-tab="compras">Compras directas</button>
     <button role="tab" data-tab="metodologia">Metodología</button>
   </nav>
 
@@ -381,6 +382,41 @@ footer { margin-top: 32px; font-size: 12.5px; color: var(--muted); }
     </div>
   </section>
 
+  <!-- COMPRAS DIRECTAS -->
+  <section class="panel" id="p-compras" role="tabpanel" hidden>
+    <h2>Compras Ágiles y tratos directos</h2>
+    <p class="sub">Compras sin licitación pública: <b>Compra Ágil</b> (hasta 100 UTM con impuestos, por cotización simple) y <b>trato directo</b> (sin concurso, con una causal legal). Son la mayoría de las órdenes de compra y el lugar típico para eludir una licitación dividiendo la compra. Fuente: descarga masiva de órdenes de compra de los últimos 12 meses completos.</p>
+    <p class="nota" id="c-fresco"></p>
+    <div class="kpis" id="k-compras"></div>
+    <div class="grid2">
+      <div class="card"><h3>Compras Ágiles entre 50 % y 100 % del tope, por tramos de 2 %</h3>
+        <p class="leyenda"><span><i style="background:var(--s1)"></i>Bajo 90 % del tope</span><span><i style="background:var(--s2)"></i>Entre 90 % y 100 %</span></p>
+        <div class="chart"><canvas id="c-ag-hist"></canvas></div>
+        <p class="nota" id="n-ag-hist"></p></div>
+      <div class="card"><h3>Tratos directos según causal (cantidad)</h3>
+        <div class="chart"><canvas id="c-td-causal"></canvas></div></div>
+    </div>
+    <div class="card">
+      <div class="controles">
+        <div class="campo"><label>Ver</label>
+          <div class="seg" role="group" aria-label="Ver" id="seg-compras">
+            <button data-cv="fracc" aria-pressed="true">Fraccionamiento</button><button data-cv="tdrec" aria-pressed="false">Tratos directos recurrentes</button><button data-cv="tdalto" aria-pressed="false">Tratos directos de monto alto</button><button data-cv="orgs" aria-pressed="false">Organismos</button>
+          </div></div>
+        <div class="campo" style="flex:1 1 220px"><label for="c-buscar">Buscar</label>
+          <input type="search" id="c-buscar" placeholder="Organismo, proveedor, rubro o código" autocomplete="off" style="width:100%"></div>
+      </div>
+      <p class="nota" id="c-nota"></p>
+      <div class="tabla" id="t-compras" style="max-height:600px"></div>
+    </div>
+    <div class="card ficha" id="c-detalle" hidden>
+      <div style="display:flex;justify-content:space-between;gap:12px;align-items:start;flex-wrap:wrap">
+        <div><span class="eyebrow" id="cd-tipo"></span><h2 id="cd-titulo"></h2><p class="nota" id="cd-sub"></p></div>
+        <button class="btn" id="cd-cerrar" type="button">Cerrar</button>
+      </div>
+      <div id="cd-codigos"></div>
+    </div>
+  </section>
+
   <!-- METODOLOGÍA -->
   <section class="panel" id="p-metodologia" role="tabpanel" hidden>
     <div class="metodo">
@@ -396,6 +432,7 @@ footer { margin-top: 32px; font-size: 12.5px; color: var(--muted); }
         <dt>Dependencia, captura y acompañantes</dt><dd>Dependencia: parte de los ingresos del proveedor que viene de su organismo principal. Captura: parte del gasto de ese organismo que se lleva. Acompañantes: proveedores que ofertan junto a él 5 o más veces en licitaciones de 2 a 4 oferentes sin ganarle nunca.</dd>
         <dt>Rubro</dt><dd>Clasificación de los productos de cada línea (niveles 1 y 2 de ChileCompra, basada en UNSPSC). Una licitación con líneas de varios rubros aparece en cada uno; «rubro principal» es el de más líneas. Se omiten rubros con menos de 30 licitaciones (casi siempre valores dañados en origen).</dd>
         <dt>Señales complementarias</dt><dd>No suman al puntaje. <b>Ofertas idénticas</b>: dos o más proveedores ofertan exactamente el mismo total, desde $100.000 y no múltiplo de $1.000 (con montos redondos las coincidencias son comunes); patrón de ofertas coordinadas, aunque también aparece con precios regulados. <b>Fraccionamiento</b>: compra L1 o E2 (bajo 100 UTM) adjudicada a un proveedor que en ±30 días ganó otras 2 o más del mismo organismo y rubro, sumando más de 100 UTM. Se probó y descartó «estimado justo bajo el tope del tipo»: los estimados se acumulan en montos redondos, no pegados al tope.</dd>
+        <dt>Compras directas</dt><dd>Órdenes de compra de los últimos 12 meses completos (descarga masiva de órdenes de compra): Compras Ágiles (hasta 100 UTM con impuestos) y tratos directos. El tope de cada mes se mide en los datos (percentil 99,95 de los montos). <b>Fraccionamiento</b>: 3 o más Compras Ágiles del mismo organismo al mismo proveedor y rubro en 30 días que juntas superan el tope; en hospitales suele reflejar compras recurrentes de insumos que debieron ir por licitación de suministro o convenio. <b>Bajo el tope</b>: entre 90 % y 100 % del tope; se compara la proporción de cada organismo con la nacional. <b>Trato directo recurrente</b>: 5 o más del mismo organismo al mismo proveedor. <b>Monto alto</b>: sobre 1.000 UTM.</dd>
         <dt>En curso</dt><dd>Abiertas: listado de licitaciones publicadas de la API de ChileCompra y el detalle de cada una. En evaluación: cerradas sin adjudicar de los últimos cuatro meses de la descarga masiva, con sus ofertas. Señales (puntos): oferente único (25), oferta junto a un acompañante habitual (20), todas las ofertas más de 20 % sobre lo estimado (15), estimado más de 1,5 veces el tope del tramo de su tipo (15), plazo en el 10 % más corto de su tipo (10), organismo con 3 o más adjudicadas de riesgo alto y una tasa de al menos 3 veces la nacional (10), oferente con 3 o más ganadas de riesgo alto que sean al menos 10 % de sus ganadas (10). Oferta muy baja: total bajo 30 % de la mediana de las demás del mismo alcance; no suma puntos, se muestra aparte: puede anticipar incumplimiento o ser un error.</dd>
         <dt>Licitaciones maduras</dt><dd>Para la pregunta 4 solo cuentan las cerradas hace más de 120 días, para que las que aún pueden adjudicarse no inflen las tasas de fracaso.</dd>
       </dl>
@@ -434,14 +471,14 @@ const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<
 const $ = (id) => document.getElementById(id);
 
 let D = null, CAT = null, META = null, MESES = [], PARES = [], CODIGOS = null, NOMBRES = null;
-const estado = { tab: "resumen", dim: "tipo", f: null, rmask: null, vista: "lic", req: 0, orden: {}, prov: null, etapa: "eval", vreq: new Set(), vlic: null, xreq: new Set() };
+const estado = { tab: "resumen", dim: "tipo", f: null, rmask: null, cvista: "fracc", vista: "lic", req: 0, orden: {}, prov: null, etapa: "eval", vreq: new Set(), vlic: null, xreq: new Set() };
 const ESTADOS_TXT = ["Adjudicada", "Desierta", "Revocada", "Cerrada", "Suspendida", "Publicada"];
 const FICHA = (codigo) => "http://www.mercadopublico.cl/fichaLicitacion.html?idLicitacion=" + encodeURIComponent(codigo);
 // Etiquetas cortas de las señales, en el orden de meta.SENALES (bits 0–5).
 const CORTO = ["oferente único", "descalificada", "sobre más barata", "sobre estimado", "plazo corto", "precio ref."];
 
 // ---------- pestañas (con #ancla)
-const TABS = ["resumen", "competencia", "precio", "concentracion", "proceso", "alertas", "vivo", "explorar", "metodologia"];
+const TABS = ["resumen", "competencia", "precio", "concentracion", "proceso", "alertas", "vivo", "explorar", "compras", "metodologia"];
 function mostrar(tab) {
   if (!TABS.includes(tab)) tab = "resumen";
   estado.tab = tab;
@@ -682,6 +719,7 @@ function render() {
   if (tab === "alertas") renderAlertas(X, T);
   if (tab === "vivo") renderVivo();
   if (tab === "explorar") renderExplorar(X);
+  if (tab === "compras") renderCompras();
 }
 
 // ---------- señales de alerta
@@ -1127,6 +1165,143 @@ function renderExplorar(X) {
   $("t-explorar").querySelectorAll("a[data-prov]").forEach((el) => el.addEventListener("click", (e) => { e.preventDefault(); mostrar("alertas"); abrirFicha(Number(el.dataset.prov)); }));
 }
 
+// ---------- compras directas (compras.json, se carga al abrir la pestaña)
+let COMPRAS = null, cargandoCompras = null;
+const OC_LINK = (c) => "http://www.mercadopublico.cl/PurchaseOrder/Modules/PO/DetailsPurchaseOrder.aspx?codigoOC=" + encodeURIComponent(c);
+function cargarCompras() {
+  if (!cargandoCompras) cargandoCompras = fetch("compras.json")
+    .then((r) => { if (!r.ok) throw new Error("compras.json: HTTP " + r.status); return r.json(); })
+    .then((c) => {
+      c.orgs = new Map(c.organismos.map((o) => [o[0], o]));
+      c.provIdx = new Map(CAT.proveedores.map((p, i) => [p[3], i]));
+      COMPRAS = c;
+      render();
+    })
+    .catch((e) => { cargandoCompras = null; $("c-fresco").innerHTML = `<span class="aviso">No se pudieron cargar las compras directas (${esc(e.message)}).</span>`; });
+  return cargandoCompras;
+}
+// Filtros globales que aplican: región, organismo y rubro (nivel 1). Fechas, tipo y sector no.
+function filtroCompras(sinRubro = false) {
+  const f = estado.f;
+  const region = f.region == null ? null : normal(CAT.regiones[f.region - 1].trim());
+  const org = f.org == null ? null : f.org < 0 ? "\0" : CAT.organismos[f.org][0];
+  const rubro = f.rubro1 == null || sinRubro ? null : normal(CAT.rubros1[f.rubro1]);
+  const C = COMPRAS;
+  return (x) => {
+    const o = C.orgs.get(x.org);
+    return (org == null || x.org === org) && (region == null || (o && o[2] && normal(o[2]) === region)) && (rubro == null || (x.rubro && normal(x.rubro) === rubro));
+  };
+}
+function provHtml(c) {
+  const n = COMPRAS.proveedores[c] || c;
+  const i = COMPRAS.provIdx.get(c);
+  return i != null ? `<a href="#" data-prov="${i}">${esc(recorta(n, 40))}</a>` : esc(recorta(n, 40));
+}
+const orgC = (c) => (COMPRAS.orgs.get(c) || [c, c])[1];
+
+function renderCompras() {
+  if (!COMPRAS) { $("c-fresco").textContent = "Cargando compras directas…"; cargarCompras(); return; }
+  const C = COMPRAS, K = C.constantes, T = tema();
+  const meses = Object.keys(C.fuentes);
+  $("c-fresco").textContent = `Órdenes de compra de ${meses[0]} a ${meses[meses.length - 1]} · generado ${C.generado.slice(0, 16).replace("T", " ")} UTC. Aplican los filtros de región, organismo y rubro (este último no a los totales por organismo); los de fecha, tipo, subrubro y sector no.`;
+  const pasa = filtroCompras();
+  // Los totales por organismo no se separan por rubro: solo filtran región y organismo.
+  const pasaOrg = filtroCompras(true);
+  const orgsF = C.organismos.filter((o) => pasaOrg({ org: o[0] }));
+  const tot = orgsF.reduce((a, o) => { a.agn += o[3]; a.agm += o[4]; a.band += o[5]; a.tdn += o[6]; a.tdm += o[7]; a.fr += o[8]; return a; }, { agn: 0, agm: 0, band: 0, tdn: 0, tdm: 0, fr: 0 });
+  const fr = C.fraccionamiento.filter(pasa), rec = C.td_recurrente.filter(pasa), alto = C.td_alto.filter(pasa);
+  kpis("k-compras", [
+    ["Compras Ágiles", num(tot.agn), clp(tot.agm)],
+    ["Tratos directos", num(tot.tdn), clp(tot.tdm)],
+    ["Episodios de fraccionamiento", num(fr.length), clp(fr.reduce((a, e) => a + e.monto, 0)) + " en total"],
+    ["Tratos directos recurrentes", num(rec.length), `pares organismo–proveedor con ${K.TD_RECURRENTE}+`],
+  ]);
+  // Histograma nacional (no se filtra: se calcula al exportar).
+  // Bajo 50 % del tope están la mayoría de las compras y aplastan la escala: se muestra 50–100 %.
+  const H = C.hist_ag, B0 = 25;
+  const tramo = H.slice(B0, 50);
+  chart("c-ag-hist", { type: "bar", data: { labels: tramo.map((_, k) => `${(B0 + k) * 2} %`), datasets: [{ data: tramo, backgroundColor: tramo.map((_, k) => (B0 + k >= 45 ? T.s2 : T.s1)), borderRadius: 2, categoryPercentage: 0.95, barPercentage: 0.95 }] },
+    options: { scales: ejes(T, { grid: { display: false }, ticks: { color: T.muted, maxRotation: 0, autoSkip: true, maxTicksLimit: 6 } }, { beginAtZero: true, ticks: { color: T.muted, callback: (v) => num(v) } }),
+      plugins: { tooltip: { callbacks: { title: (i) => `${(B0 + i[0].dataIndex) * 2}–${(B0 + i[0].dataIndex) * 2 + 2} % del tope`, label: (x) => num(x.raw) + " Compras Ágiles" } } } } });
+  const enBanda = H.slice(45, 50).reduce((a, b) => a + b, 0), antes = H.slice(40, 45).reduce((a, b) => a + b, 0);
+  $("n-ag-hist").textContent = `Todo el país, sin filtros. Entre 90 % y 100 % del tope hay ${num(enBanda)} compras, ${antes ? (enBanda / antes).toLocaleString("es-CL", { maximumFractionDigits: 1 }) : "—"} veces las que hay entre 80 % y 90 %, y el último tramo (98–100 %) duplica a los anteriores: los montos se ajustan para no pasar el tope. El tope de cada mes se mide en los datos (~100 UTM con impuestos: de $6,9 a $7,2 millones, al ritmo de la UTM).`;
+  const cs = C.causales.filter(([c]) => c).slice(0, 10);
+  chart("c-td-causal", { type: "bar", data: { labels: cs.map(([c]) => recorta(c, 46)), datasets: [{ data: cs.map(([, n]) => n), backgroundColor: T.s1, borderRadius: 3, maxBarThickness: 16 }] },
+    options: { indexAxis: "y", scales: ejes(T, { beginAtZero: true, ticks: { color: T.muted, maxTicksLimit: 5, callback: (v) => num(v) } }, { grid: { display: false }, ticks: { color: T.ink2, autoSkip: false, font: { size: 11 } } }), plugins: { tooltip: { callbacks: { title: (i) => cs[i[0].dataIndex][0], label: (x) => num(x.raw) + " tratos directos" } } } } });
+
+  const vista = estado.cvista;
+  const q = normal($("c-buscar").value.trim());
+  const busca = (x, extra = "") => !q || normal(`${orgC(x.org)} ${C.proveedores[x.prov] || ""} ${x.rubro || ""} ${extra}`).includes(q);
+  const cap = (t) => (t ? t.charAt(0).toUpperCase() + t.slice(1).toLowerCase() : "—");
+  let r;
+  if (vista === "fracc") {
+    const filas = fr.filter((e) => busca(e, e.codigos.join(" ")));
+    r = tablaOrdenable("t-compras", [
+      { k: "o", t: "Organismo", v: (e) => orgC(e.org), s: (e) => orgC(e.org) },
+      { k: "p", t: "Proveedor", v: (e) => provHtml(e.prov), html: 1, s: (e) => C.proveedores[e.prov] || "" },
+      { k: "r", t: "Rubro", v: (e) => recorta(cap(e.rubro), 40), s: (e) => e.rubro || "" },
+      { k: "d", t: "Periodo", v: (e) => `${e.desde} a ${e.hasta}`, s: (e) => e.desde },
+      { k: "n", t: "Compras Ágiles", v: (e) => num(e.n), n: 1, s: (e) => e.n },
+      { k: "m", t: "Monto total", v: (e) => clp(e.monto), n: 1, s: (e) => e.monto },
+      { k: "x", t: "Veces el tope", v: (e) => num(e.monto / (C.topes[e.desde.slice(0, 7)] || 7.2e6), 1), n: 1, s: (e) => e.monto / (C.topes[e.desde.slice(0, 7)] || 7.2e6) },
+    ], filas, "c-fracc", { k: "m", dir: "desc" }, (e) => detalleCompras("Fraccionamiento", `${orgC(e.org)} → ${C.proveedores[e.prov] || e.prov}`, `${num(e.n)} Compras Ágiles entre ${e.desde} y ${e.hasta}, ${clp(e.monto)} en total · rubro ${cap(e.rubro)}`, e.codigos));
+    $("c-nota").textContent = `${num(r.total)} episodios: ${K.FRACC_MIN} o más Compras Ágiles del mismo organismo al mismo proveedor y rubro en ${K.FRACC_DIAS} días que juntas superan el tope. Clic en una fila para ver las órdenes.`;
+  }
+  if (vista === "tdrec") {
+    const filas = rec.filter((e) => busca(e, e.causal || ""));
+    r = tablaOrdenable("t-compras", [
+      { k: "o", t: "Organismo", v: (e) => orgC(e.org), s: (e) => orgC(e.org) },
+      { k: "p", t: "Proveedor", v: (e) => provHtml(e.prov), html: 1, s: (e) => C.proveedores[e.prov] || "" },
+      { k: "n", t: "Tratos directos", v: (e) => num(e.n), n: 1, s: (e) => e.n },
+      { k: "m", t: "Monto", v: (e) => clp(e.monto), n: 1, s: (e) => e.monto },
+      { k: "c", t: "Causal más usada", v: (e) => recorta(e.causal || "—", 60), s: (e) => e.causal || "" },
+      { k: "r", t: "Rubro", v: (e) => recorta(cap(e.rubro), 34), s: (e) => e.rubro || "" },
+      { k: "d", t: "Periodo", v: (e) => `${e.desde} a ${e.hasta}`, s: (e) => e.desde },
+    ], filas, "c-tdrec", { k: "m", dir: "desc" }, (e) => detalleCompras("Trato directo recurrente", `${orgC(e.org)} → ${C.proveedores[e.prov] || e.prov}`, `${num(e.n)} tratos directos, ${clp(e.monto)} · causal más usada: ${e.causal || "—"}`, e.codigos));
+    $("c-nota").textContent = `${num(r.total)} pares organismo–proveedor con ${K.TD_RECURRENTE} o más tratos directos en el periodo. Pueden ser servicios legítimamente continuos; la pregunta es por qué no se licitaron. Clic en una fila para ver las órdenes.`;
+  }
+  if (vista === "tdalto") {
+    const filas = alto.filter((e) => busca(e, `${e.codigo} ${e.nombre} ${e.causal || ""}`));
+    r = tablaOrdenable("t-compras", [
+      { k: "c", t: "Orden de compra", v: (e) => `<a href="${OC_LINK(e.codigo)}" target="_blank" rel="noopener">${esc(e.codigo)}</a>`, html: 1, s: (e) => e.codigo },
+      { k: "f", t: "Fecha", v: (e) => e.fecha, s: (e) => e.fecha },
+      { k: "o", t: "Organismo", v: (e) => orgC(e.org), s: (e) => orgC(e.org) },
+      { k: "p", t: "Proveedor", v: (e) => provHtml(e.prov), html: 1, s: (e) => C.proveedores[e.prov] || "" },
+      { k: "m", t: "Monto", v: (e) => clp(e.monto), n: 1, s: (e) => e.monto },
+      { k: "ca", t: "Causal", v: (e) => recorta(e.causal || "—", 60), s: (e) => e.causal || "" },
+      { k: "n", t: "Descripción", v: (e) => recorta(e.nombre || "", 70), s: (e) => e.nombre || "" },
+    ], filas, "c-tdalto", { k: "m", dir: "desc" });
+    $("c-nota").textContent = `${num(r.total)} tratos directos sobre ${num(K.TD_ALTO_UTM)} UTM. Revisa que la causal (proveedor único, emergencia…) calce con lo comprado.`;
+  }
+  if (vista === "orgs") {
+    const nac = C.organismos.reduce((a, o) => [a[0] + o[3], a[1] + o[5]], [0, 0]);
+    const tasa = nac[0] ? nac[1] / nac[0] : 0;
+    const filas = orgsF.filter((o) => o[3] + o[6] >= 30 && (!q || normal(`${o[1]} ${o[2] || ""}`).includes(q)));
+    r = tablaOrdenable("t-compras", [
+      { k: "o", t: "Organismo", v: (o) => o[1], s: (o) => o[1] },
+      { k: "re", t: "Región", v: (o) => recorta(o[2] || "—", 28), s: (o) => o[2] || "" },
+      { k: "an", t: "Compras Ágiles", v: (o) => num(o[3]), n: 1, s: (o) => o[3] },
+      { k: "am", t: "Monto CA", v: (o) => clp(o[4]), n: 1, s: (o) => o[4] },
+      { k: "b", t: "Bajo el tope (90–100 %)", v: (o) => (o[3] ? `${pct(o[5] / o[3])} · ${num(o[5] / o[3] / tasa, 1)}×` : "—"), n: 1, s: (o) => (o[3] >= 30 ? o[5] / o[3] : null), h: "Proporción de sus Compras Ágiles entre 90 % y 100 % del tope, y cuántas veces la nacional" },
+      { k: "f", t: "En fraccionamiento", v: (o) => (o[3] ? `${num(o[8])} · ${pct(o[8] / o[3])}` : "—"), n: 1, s: (o) => (o[3] ? o[8] / o[3] : null) },
+      { k: "tn", t: "Tratos directos", v: (o) => num(o[6]), n: 1, s: (o) => o[6] },
+      { k: "tm", t: "Monto TD", v: (o) => clp(o[7]), n: 1, s: (o) => o[7] },
+      { k: "tp", t: "TD / (CA + TD)", v: (o) => pct(o[7] / (o[4] + o[7] || 1)), n: 1, s: (o) => o[7] / (o[4] + o[7] || 1), h: "Parte del monto sin licitación que va por trato directo" },
+    ], filas, "c-orgs", { k: "f", dir: "desc" });
+    $("c-nota").textContent = `${num(r.total)} organismos con 30 o más compras directas. Nacional: ${pct(tasa)} de las Compras Ágiles está entre 90 % y 100 % del tope.`;
+  }
+  $("t-compras").querySelectorAll("a[data-prov]").forEach((el) => el.addEventListener("click", (e) => { e.preventDefault(); e.stopPropagation(); mostrar("alertas"); abrirFicha(Number(el.dataset.prov)); }));
+}
+
+function detalleCompras(tipo, titulo, sub, codigos) {
+  $("cd-tipo").textContent = tipo;
+  $("cd-titulo").textContent = titulo;
+  $("cd-sub").textContent = sub;
+  $("cd-codigos").innerHTML = `<div class="pares">${codigos.map((c) => `<a class="marca" href="${OC_LINK(c)}" target="_blank" rel="noopener">${esc(c)}</a>`).join("")}</div>`;
+  $("c-detalle").hidden = false;
+  $("c-detalle").scrollIntoView({ behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth", block: "start" });
+}
+
 // ---------- carga
 // Los binarios se publican en base64 (.b64.txt): la plataforma no sirve archivos .bin.
 async function bin64(f) {
@@ -1244,6 +1419,14 @@ async function iniciar() {
     let tBuscarX;
     $("x-buscar").addEventListener("input", () => { clearTimeout(tBuscarX); tBuscarX = setTimeout(render, 250); });
     for (const id of ["x-estado", "x-ofer", "x-min", "x-monto"]) $(id).addEventListener("change", render);
+    document.querySelectorAll("#seg-compras button").forEach((b) => b.addEventListener("click", () => {
+      estado.cvista = b.dataset.cv;
+      document.querySelectorAll("#seg-compras button").forEach((x) => x.setAttribute("aria-pressed", x === b));
+      render();
+    }));
+    let tBuscarC;
+    $("c-buscar").addEventListener("input", () => { clearTimeout(tBuscarC); tBuscarC = setTimeout(render, 200); });
+    $("cd-cerrar").addEventListener("click", () => { $("c-detalle").hidden = true; });
     await aplicar();
     mostrar((location.hash || "#resumen").slice(1));
   } catch (err) {

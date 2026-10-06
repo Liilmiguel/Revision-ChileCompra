@@ -1,4 +1,4 @@
-"""Línea de comandos: `observatorio {init-db,backfill,incremental,status,snapshot,vivo}`."""
+"""Línea de comandos: `observatorio {init-db,backfill,incremental,status,snapshot,vivo,compras}`."""
 
 from __future__ import annotations
 
@@ -38,7 +38,17 @@ def main(argv: list[str] | None = None) -> None:
     p_vivo.add_argument("--meses", type=int, default=4, help="meses recientes de la descarga masiva")
     p_vivo.add_argument("--semilla", type=Path, help="vivo.json anterior: reutiliza sus detalles de la API")
 
+    p_compras = sub.add_parser("compras", help="Compras Ágiles y tratos directos (órdenes de compra) para la web")
+    p_compras.add_argument("--meses", type=int, default=12, help="meses completos más recientes")
+
     args = parser.parse_args(argv)
+    if args.command == "compras":
+        from observatorio import compras
+
+        logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
+        r = compras.generar(config.ROOT / "data" / "compras", config.raw_dir(), args.meses)
+        _print({k: str(v) for k, v in r.items()})
+        return
     if args.command == "vivo":
         # No usa la base de datos: corre también en una sesión sin PostgreSQL.
         import os
