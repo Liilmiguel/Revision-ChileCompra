@@ -163,6 +163,8 @@ footer { margin-top: 32px; font-size: 12.5px; color: var(--muted); }
     <div class="campo"><label for="f-tipo">Tipo de licitación</label><select id="f-tipo"><option value="">Todos</option></select></div>
     <div class="campo"><label for="f-region">Región</label><select id="f-region"><option value="">Todas</option></select></div>
     <div class="campo"><label for="f-sector">Sector</label><select id="f-sector"><option value="">Todos</option></select></div>
+    <div class="campo"><label for="f-rubro1">Rubro</label><select id="f-rubro1" style="max-width:260px"><option value="">Todos</option></select></div>
+    <div class="campo"><label for="f-rubro2">Subrubro</label><select id="f-rubro2" style="max-width:260px"><option value="">Todos</option></select></div>
     <div class="campo"><label for="f-org">Organismo comprador</label>
       <input type="search" id="f-org" list="l-org" placeholder="Todos · escribe para buscar" autocomplete="off">
       <datalist id="l-org"></datalist></div>
@@ -178,6 +180,7 @@ footer { margin-top: 32px; font-size: 12.5px; color: var(--muted); }
     <button role="tab" data-tab="proceso"><span class="n">4</span>Proceso</button>
     <button role="tab" data-tab="alertas">Señales de alerta</button>
     <button role="tab" data-tab="vivo">En curso</button>
+    <button role="tab" data-tab="explorar">Explorar</button>
     <button role="tab" data-tab="metodologia">Metodología</button>
   </nav>
 
@@ -356,6 +359,28 @@ footer { margin-top: 32px; font-size: 12.5px; color: var(--muted); }
     </div>
   </section>
 
+  <!-- EXPLORAR -->
+  <section class="panel" id="p-explorar" role="tabpanel" hidden>
+    <h2>Explorar todas las licitaciones</h2>
+    <p class="sub">Todas las licitaciones del periodo, con o sin señales. Combina los filtros de arriba (fechas, tipo, región, sector, organismo, <b>rubro</b>) con la búsqueda por texto: por ejemplo, rubro «Tecnologías de la información, telecomunicaciones…» y la palabra «radio».</p>
+    <div class="card">
+      <div class="controles">
+        <div class="campo" style="flex:1 1 260px"><label for="x-buscar">Buscar en nombre, código u organismo</label>
+          <input type="search" id="x-buscar" placeholder="p. ej. radio, fibra óptica, antena" autocomplete="off" style="width:100%"></div>
+        <div class="campo"><label for="x-estado">Estado</label><select id="x-estado"><option value="">Todos</option></select></div>
+        <div class="campo"><label for="x-ofer">Oferentes</label>
+          <select id="x-ofer"><option value="">Todos</option><option value="0">Sin ofertas</option><option value="1">Uno (oferente único)</option><option value="2">2 a 3</option><option value="4">4 o más</option></select></div>
+        <div class="campo"><label for="x-min">Puntaje mínimo</label>
+          <select id="x-min"><option value="0" selected>Cualquiera</option><option value="1">Con alguna señal</option><option value="20">20</option><option value="40">40 (riesgo alto)</option></select></div>
+        <div class="campo"><label for="x-monto">Monto (estimado o adjudicado)</label>
+          <select id="x-monto"><option value="0" selected>Cualquiera</option><option value="1e6">≥ $1 millón</option><option value="1e7">≥ $10 millones</option><option value="1e8">≥ $100 millones</option><option value="1e9">≥ $1.000 millones</option></select></div>
+      </div>
+      <div class="campo"><label>Debe incluir</label><div class="chips" id="x-req"></div></div>
+      <p class="nota" id="x-nota"></p>
+      <div class="tabla" id="t-explorar" style="max-height:640px"></div>
+    </div>
+  </section>
+
   <!-- METODOLOGÍA -->
   <section class="panel" id="p-metodologia" role="tabpanel" hidden>
     <div class="metodo">
@@ -369,6 +394,8 @@ footer { margin-top: 32px; font-size: 12.5px; color: var(--muted); }
         <dt>HHI</dt><dd>Índice Herfindahl-Hirschman: suma de los cuadrados de la participación de cada proveedor en el monto en CLP de un organismo (0 a 10.000). Sobre 2.500, concentración alta.</dd>
         <dt>Puntaje de riesgo</dt><dd>Suma ponderada de seis señales por licitación adjudicada: oferente único (25), competencia descalificada: todos menos el ganador rechazados (25), se pagó al menos 50 % más que la oferta aceptada más barata (20), adjudicado más de 20 % sobre lo estimado (15), plazo de ofertas en el 10 % más corto de su tipo (10) y precio unitario más de 5 veces la referencia del mismo producto (5). Riesgo alto: 40 o más.</dd>
         <dt>Dependencia, captura y acompañantes</dt><dd>Dependencia: parte de los ingresos del proveedor que viene de su organismo principal. Captura: parte del gasto de ese organismo que se lleva. Acompañantes: proveedores que ofertan junto a él 5 o más veces en licitaciones de 2 a 4 oferentes sin ganarle nunca.</dd>
+        <dt>Rubro</dt><dd>Clasificación de los productos de cada línea (niveles 1 y 2 de ChileCompra, basada en UNSPSC). Una licitación con líneas de varios rubros aparece en cada uno; «rubro principal» es el de más líneas. Se omiten rubros con menos de 30 licitaciones (casi siempre valores dañados en origen).</dd>
+        <dt>Señales complementarias</dt><dd>No suman al puntaje. <b>Ofertas idénticas</b>: dos o más proveedores ofertan exactamente el mismo total, desde $100.000 y no múltiplo de $1.000 (con montos redondos las coincidencias son comunes); patrón de ofertas coordinadas, aunque también aparece con precios regulados. <b>Fraccionamiento</b>: compra L1 o E2 (bajo 100 UTM) adjudicada a un proveedor que en ±30 días ganó otras 2 o más del mismo organismo y rubro, sumando más de 100 UTM. Se probó y descartó «estimado justo bajo el tope del tipo»: los estimados se acumulan en montos redondos, no pegados al tope.</dd>
         <dt>En curso</dt><dd>Abiertas: listado de licitaciones publicadas de la API de ChileCompra y el detalle de cada una. En evaluación: cerradas sin adjudicar de los últimos cuatro meses de la descarga masiva, con sus ofertas. Señales (puntos): oferente único (25), oferta junto a un acompañante habitual (20), todas las ofertas más de 20 % sobre lo estimado (15), estimado más de 1,5 veces el tope del tramo de su tipo (15), plazo en el 10 % más corto de su tipo (10), organismo con 3 o más adjudicadas de riesgo alto y una tasa de al menos 3 veces la nacional (10), oferente con 3 o más ganadas de riesgo alto que sean al menos 10 % de sus ganadas (10). Oferta muy baja: total bajo 30 % de la mediana de las demás del mismo alcance; no suma puntos, se muestra aparte: puede anticipar incumplimiento o ser un error.</dd>
         <dt>Licitaciones maduras</dt><dd>Para la pregunta 4 solo cuentan las cerradas hace más de 120 días, para que las que aún pueden adjudicarse no inflen las tasas de fracaso.</dd>
       </dl>
@@ -407,13 +434,14 @@ const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<
 const $ = (id) => document.getElementById(id);
 
 let D = null, CAT = null, META = null, MESES = [], PARES = [], CODIGOS = null, NOMBRES = null;
-const estado = { tab: "resumen", dim: "tipo", f: null, vista: "lic", req: 0, orden: {}, prov: null, etapa: "eval", vreq: new Set(), vlic: null };
+const estado = { tab: "resumen", dim: "tipo", f: null, rmask: null, vista: "lic", req: 0, orden: {}, prov: null, etapa: "eval", vreq: new Set(), vlic: null, xreq: new Set() };
+const ESTADOS_TXT = ["Adjudicada", "Desierta", "Revocada", "Cerrada", "Suspendida", "Publicada"];
 const FICHA = (codigo) => "http://www.mercadopublico.cl/fichaLicitacion.html?idLicitacion=" + encodeURIComponent(codigo);
 // Etiquetas cortas de las señales, en el orden de meta.SENALES (bits 0–5).
 const CORTO = ["oferente único", "descalificada", "sobre más barata", "sobre estimado", "plazo corto", "precio ref."];
 
 // ---------- pestañas (con #ancla)
-const TABS = ["resumen", "competencia", "precio", "concentracion", "proceso", "alertas", "vivo", "metodologia"];
+const TABS = ["resumen", "competencia", "precio", "concentracion", "proceso", "alertas", "vivo", "explorar", "metodologia"];
 function mostrar(tab) {
   if (!TABS.includes(tab)) tab = "resumen";
   estado.tab = tab;
@@ -500,7 +528,25 @@ function leerFiltros() {
   }
   let desde = Number($("f-desde").value), hasta = Number($("f-hasta").value);
   if (desde > hasta) [desde, hasta] = [hasta, desde];
-  return { desde, hasta, tipo: v("f-tipo"), region: v("f-region"), sector: v("f-sector"), org };
+  return { desde, hasta, tipo: v("f-tipo"), region: v("f-region"), sector: v("f-sector"), org, rubro1: v("f-rubro1"), rubro2: v("f-rubro2") };
+}
+
+// Rubro → licitaciones (rubros.b64.txt, CSR), cargado al elegir un rubro.
+let RUB = null, cargandoRub = null;
+function cargarRubros() {
+  if (!cargandoRub) cargandoRub = bin64("rubros.b64.txt").then((buf) => {
+    const k = CAT.rubros2.length + 2;
+    RUB = { off: new Uint32Array(buf, 0, k), lics: new Uint32Array(buf, 4 * k) };
+  }).catch((e) => { cargandoRub = null; throw e; });
+  return cargandoRub;
+}
+// Máscara de las licitaciones con alguna línea en el rubro (nivel 1) o subrubro (nivel 2) elegido.
+function mascaraRubro(f) {
+  if (f.rubro1 == null && f.rubro2 == null) return null;
+  const m = new Uint8Array(D.n);
+  const ks = f.rubro2 != null ? [f.rubro2] : CAT.rubros2.map(([r1], i) => (r1 === f.rubro1 ? i + 1 : 0)).filter(Boolean);
+  for (const k of ks) for (let j = RUB.off[k]; j < RUB.off[k + 1]; j++) m[RUB.lics[j]] = 1;
+  return m;
 }
 
 let cache = { key: null };
@@ -508,7 +554,7 @@ function calcular() {
   const f = estado.f;
   const key = JSON.stringify(f);
   if (cache.key === key) return cache;
-  const mk = Metricas.mascara(D, f);
+  const mk = Metricas.mascara(D, Object.assign({}, f, { rubroMask: estado.rmask }));
   const nM = MESES.length;
   cache = {
     key, mk,
@@ -635,6 +681,7 @@ function render() {
 
   if (tab === "alertas") renderAlertas(X, T);
   if (tab === "vivo") renderVivo();
+  if (tab === "explorar") renderExplorar(X);
 }
 
 // ---------- señales de alerta
@@ -728,7 +775,7 @@ function renderAlertas(X, T) {
     }
     const r = tablaOrdenable("t-alertas", [
       { k: "p", t: "Puntaje", v: (i) => puntajeHtml(puntaje[i]), html: 1, s: (i) => puntaje[i] * 1e15 + (Number.isNaN(monto[i]) ? 0 : monto[i]) },
-      { k: "s", t: "Señales", v: (i) => marcas(senal[i]), html: 1 },
+      { k: "s", t: "Señales", v: (i) => marcas(senal[i]) + marcasExtra(D.c.extra[i]), html: 1 },
       { k: "c", t: "Código", v: (i) => codigo(i), code: 1, s: (i) => codigo(i) },
       { k: "n", t: "Licitación", v: (i) => nombreLic(i), s: (i) => nombreLic(i) },
       { k: "o", t: "Organismo", v: (i) => orgNombre(org[i]), s: (i) => orgNombre(org[i]) },
@@ -1005,18 +1052,94 @@ function renderDetalleVivo() {
   $("v-detalle").querySelectorAll("a[data-prov]").forEach((el) => el.addEventListener("click", (e) => { e.preventDefault(); mostrar("alertas"); abrirFicha(Number(el.dataset.prov)); }));
 }
 
+// ---------- explorar (todas las licitaciones)
+let NOMT = null, NOML = null, cargandoNomT = null;
+const normal = (t) => t.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+function cargarNombresTodos() {
+  if (!cargandoNomT) cargandoNomT = bin64("nombres_todos.gz.b64.txt")
+    .then((buf) => new Response(new Blob([buf]).stream().pipeThrough(new DecompressionStream("gzip"))).text())
+    .then((t) => { NOMT = t.split("\n"); NOML = NOMT.map(normal); render(); })
+    .catch((e) => { cargandoNomT = null; $("x-nota").innerHTML = `<span class="aviso">No se pudieron cargar los nombres (${esc(e.message)}).</span>`; });
+  return cargandoNomT;
+}
+const EXTRA_TXT = ["ofertas idénticas", "fraccionamiento"];
+const marcasExtra = (bits) => EXTRA_TXT.map((t, b) => (bits & (1 << b) ? `<span class="marca baja">${t}</span>` : "")).join("");
+// Ganadores por licitación (todas las adjudicaciones en CLP), calculado una vez.
+let GAN = null;
+function ganadores(li) {
+  if (!GAN) {
+    GAN = new Map();
+    for (let j = 0; j < D.adj.lic.length; j++) {
+      const l = D.adj.lic[j];
+      if (!GAN.has(l)) GAN.set(l, []);
+      GAN.get(l).push(D.adj.prov[j]);
+    }
+  }
+  return GAN.get(li) || [];
+}
+
+function renderExplorar(X) {
+  if (!CODIGOS) cargarTextos();
+  if (!NOMT) { $("x-nota").textContent = "Cargando nombres de las licitaciones…"; cargarNombresTodos(); return; }
+  const { estado: est, ofer, puntaje, senal, extra, org, tipo, monto, estim, mes, rubro } = D.c;
+  const q = normal($("x-buscar").value.trim());
+  const fe = $("x-estado").value === "" ? null : Number($("x-estado").value);
+  const fo = $("x-ofer").value;
+  const min = Number($("x-min").value);
+  const mmin = Number($("x-monto").value);
+  let reqS = 0, reqX = 0;
+  for (const k of estado.xreq) { if (k[0] === "s") reqS |= 1 << Number(k.slice(1)); else reqX |= 1 << Number(k.slice(1)); }
+  // Organismos que calzan con el texto (para no normalizar su nombre en cada fila).
+  const orgCalza = q ? new Set(CAT.organismos.map(([, n], i) => (normal(n).includes(q) ? i : -1)).filter((i) => i >= 0)) : null;
+  const filas = [];
+  for (let i = 0; i < D.n; i++) {
+    if (!X.mk[i]) continue;
+    if (fe != null && est[i] !== fe) continue;
+    if (fo === "0" && ofer[i] !== 0) continue;
+    if (fo === "1" && ofer[i] !== 1) continue;
+    if (fo === "2" && (ofer[i] < 2 || ofer[i] > 3)) continue;
+    if (fo === "4" && ofer[i] < 4) continue;
+    if (min === 1 ? puntaje[i] === 0 && !extra[i] : puntaje[i] < min) continue;
+    if ((senal[i] & reqS) !== reqS || (extra[i] & reqX) !== reqX) continue;
+    if (mmin) { const m = Number.isNaN(monto[i]) ? estim[i] : monto[i]; if (!(m >= mmin)) continue; }
+    if (q && !NOML[i].includes(q) && !orgCalza.has(org[i]) && !(CODIGOS && CODIGOS[i].toLowerCase().includes(q))) continue;
+    filas.push(i);
+  }
+  const rub = (i) => (rubro[i] ? CAT.rubros2[rubro[i] - 1][1] : "");
+  const cap = (t) => (t ? t.charAt(0) + t.slice(1).toLowerCase() : "—");
+  const r = tablaOrdenable("t-explorar", [
+    { k: "c", t: "Código", v: (i) => codigo(i), code: 1, s: (i) => codigo(i) },
+    { k: "n", t: "Licitación", v: (i) => NOMT[i] || "—", s: (i) => NOMT[i] || "" },
+    { k: "o", t: "Organismo", v: (i) => orgNombre(org[i]), s: (i) => orgNombre(org[i]) },
+    { k: "t", t: "Tipo", v: (i) => CAT.tipos[tipo[i]][0], s: (i) => CAT.tipos[tipo[i]][0] },
+    { k: "r", t: "Rubro principal", v: (i) => recorta(cap(rub(i)), 40), s: (i) => rub(i) },
+    { k: "e", t: "Estado", v: (i) => ESTADOS_TXT[est[i]], s: (i) => est[i] },
+    { k: "m", t: "Mes", v: (i) => MESES[mes[i]], s: (i) => mes[i] },
+    { k: "of", t: "Oferentes", v: (i) => num(ofer[i]), n: 1, s: (i) => ofer[i] },
+    { k: "es", t: "Estimado", v: (i) => clp(estim[i]), n: 1, s: (i) => (Number.isNaN(estim[i]) ? null : estim[i]) },
+    { k: "ad", t: "Adjudicado", v: (i) => clp(monto[i]), n: 1, s: (i) => (Number.isNaN(monto[i]) ? null : monto[i]) },
+    { k: "g", t: "Ganador", v: (i) => ganadores(i).map((p) => `<a href="#" data-prov="${p}">${esc(recorta(prov(p)[0], 32))}</a>`).join("<br>"), html: 1 },
+    { k: "p", t: "Puntaje", v: (i) => puntajeHtml(puntaje[i]), html: 1, s: (i) => puntaje[i] * 1e15 + (Number.isNaN(monto[i]) ? 0 : monto[i]) },
+    { k: "s", t: "Señales", v: (i) => marcas(senal[i]) + marcasExtra(extra[i]), html: 1 },
+    { k: "f", t: "Ficha", v: (i) => `<a href="${FICHA(codigo(i))}" target="_blank" rel="noopener">Abrir</a>`, html: 1 },
+  ], filas, "explorar", { k: "m", dir: "desc" });
+  $("x-nota").textContent = `${num(r.total)} licitaciones${r.total > r.mostradas ? ` · se muestran ${num(r.mostradas)} (ordena o afina la búsqueda para ver otras)` : ""}. La búsqueda ignora tildes y mayúsculas. Clic en un ganador para ver su ficha.`;
+  $("t-explorar").querySelectorAll("a[data-prov]").forEach((el) => el.addEventListener("click", (e) => { e.preventDefault(); mostrar("alertas"); abrirFicha(Number(el.dataset.prov)); }));
+}
+
 // ---------- carga
+// Los binarios se publican en base64 (.b64.txt): la plataforma no sirve archivos .bin.
+async function bin64(f) {
+  const r = await fetch(f);
+  if (!r.ok) throw new Error(f + ": HTTP " + r.status);
+  const b64 = (await r.text()).trim();
+  if (Uint8Array.fromBase64) return Uint8Array.fromBase64(b64).buffer;
+  const s = atob(b64), u = new Uint8Array(s.length);
+  for (let i = 0; i < s.length; i++) u[i] = s.charCodeAt(i);
+  return u.buffer;
+}
 async function iniciar() {
-  // Los binarios se publican en base64 (.b64.txt): la plataforma no sirve archivos .bin.
-  const bin = async (f) => {
-    const r = await fetch(f);
-    if (!r.ok) throw new Error(f + ": HTTP " + r.status);
-    const b64 = (await r.text()).trim();
-    if (Uint8Array.fromBase64) return Uint8Array.fromBase64(b64).buffer;
-    const s = atob(b64), u = new Uint8Array(s.length);
-    for (let i = 0; i < s.length; i++) u[i] = s.charCodeAt(i);
-    return u.buffer;
-  };
+  const bin = bin64;
   const json = async (f) => { const r = await fetch(f); if (!r.ok) throw new Error(f + ": HTTP " + r.status); return r.json(); };
   try {
     const [meta, cat, licB, adjB, pares] = await Promise.all([json("meta.json"), json("catalogos.json"), bin("lic.b64.txt"), bin("adj.b64.txt"), json("pares.json")]);
@@ -1033,19 +1156,40 @@ async function iniciar() {
     opts("f-tipo", cat.tipos.map(([t, d], i) => [i, `${t} · ${d}`]));
     opts("f-region", cat.regiones.map((r, i) => [i + 1, r.trim()]));
     opts("f-sector", cat.sectores.map((s, i) => [i + 1, s]));
+    const cap = (t) => t.charAt(0) + t.slice(1).toLowerCase();
+    opts("f-rubro1", cat.rubros1.map((r, i) => [i, cap(r)]));
+    const subrubros = () => {
+      const r1 = $("f-rubro1").value === "" ? null : Number($("f-rubro1").value);
+      const actual = $("f-rubro2").value;
+      $("f-rubro2").innerHTML = '<option value="">Todos</option>' + cat.rubros2.map(([a, n], i) => (r1 == null || a === r1 ? `<option value="${i + 1}">${esc(cap(n))}</option>` : "")).join("");
+      if ([...$("f-rubro2").options].some((o) => o.value === actual)) $("f-rubro2").value = actual;
+    };
+    subrubros();
+    opts("x-estado", ESTADOS_TXT.map((e, i) => [i, e]));
     $("l-org").innerHTML = cat.organismos.map(([, n]) => `<option value="${esc(n)}"></option>`).join("");
     $("periodo").textContent = `Mercado Público · licitaciones ${MESES[0]} a ${MESES[MESES.length - 1]}`;
     $("pie").textContent = `Fuente: descarga masiva de Mercado Público (ChileCompra) y su API. Datos al ${(meta.corte_datos || meta.corte).slice(0, 10)}. Cálculos en el navegador sobre ${num(meta.n)} licitaciones.`;
-    try { const g = JSON.parse(localStorage.getItem("obs-filtros") || "null"); if (g) for (const [k, v] of Object.entries(g)) if ($(k)) $(k).value = v; } catch (e) { /* sin almacenamiento */ }
-    const aplicar = () => {
-      estado.f = leerFiltros();
-      try { localStorage.setItem("obs-filtros", JSON.stringify(Object.fromEntries(["f-desde", "f-hasta", "f-tipo", "f-region", "f-sector", "f-org"].map((k) => [k, $(k).value])))); } catch (e) { /* sin almacenamiento */ }
+    const FILTROS = ["f-desde", "f-hasta", "f-tipo", "f-region", "f-sector", "f-org", "f-rubro1", "f-rubro2"];
+    try {
+      const g = JSON.parse(localStorage.getItem("obs-filtros") || "null");
+      if (g) { if ($("f-rubro1") && g["f-rubro1"] != null) { $("f-rubro1").value = g["f-rubro1"]; subrubros(); } for (const [k, v] of Object.entries(g)) if ($(k)) $(k).value = v; }
+    } catch (e) { /* sin almacenamiento */ }
+    const aplicar = async () => {
+      const f = leerFiltros();
+      if (f.rubro1 != null || f.rubro2 != null) {
+        $("estado").innerHTML = '<span class="carga">Cargando rubros…</span>';
+        try { await cargarRubros(); } catch (e) { $("estado").innerHTML = `<span class="aviso">No se pudieron cargar los rubros (${esc(e.message)}).</span>`; return; }
+      }
+      estado.rmask = mascaraRubro(f);
+      estado.f = f;
+      try { localStorage.setItem("obs-filtros", JSON.stringify(Object.fromEntries(FILTROS.map((k) => [k, $(k).value])))); } catch (e) { /* sin almacenamiento */ }
       render();
     };
-    for (const id of ["f-desde", "f-hasta", "f-tipo", "f-region", "f-sector"]) $(id).addEventListener("change", aplicar);
+    $("f-rubro1").addEventListener("change", () => { subrubros(); $("f-rubro2").value = ""; aplicar(); });
+    for (const id of ["f-desde", "f-hasta", "f-tipo", "f-region", "f-sector", "f-rubro2"]) $(id).addEventListener("change", aplicar);
     $("f-org").addEventListener("change", aplicar);
     $("f-org").addEventListener("input", () => { if ($("f-org").value === "") aplicar(); });
-    $("limpiar").addEventListener("click", () => { $("f-desde").value = "0"; $("f-hasta").value = String(MESES.length - 1); for (const id of ["f-tipo", "f-region", "f-sector", "f-org"]) $(id).value = ""; aplicar(); });
+    $("limpiar").addEventListener("click", () => { $("f-desde").value = "0"; $("f-hasta").value = String(MESES.length - 1); for (const id of ["f-tipo", "f-region", "f-sector", "f-org", "f-rubro1"]) $(id).value = ""; subrubros(); $("f-rubro2").value = ""; aplicar(); });
     document.querySelectorAll(".seg button[data-dim]").forEach((b) => b.addEventListener("click", () => {
       estado.dim = b.dataset.dim;
       document.querySelectorAll(".seg button[data-dim]").forEach((x) => x.setAttribute("aria-pressed", x === b));
@@ -1088,7 +1232,19 @@ async function iniciar() {
     const redibujar = () => { for (const k of Object.keys(charts)) { charts[k].destroy(); delete charts[k]; } render(); };
     matchMedia("(prefers-color-scheme: dark)").addEventListener("change", redibujar);
     new MutationObserver(redibujar).observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
-    estado.f = leerFiltros();
+    // Explorar
+    const XCH = [...CORTO.map((t, b) => ["s" + b, t, D.k.SENALES[b][1]]), ["x0", "ofertas idénticas", "Dos o más proveedores ofertaron exactamente el mismo total (no redondo)"], ["x1", "fraccionamiento", "Compra menor (< 100 UTM) que, con otras 2+ del mismo organismo, proveedor y rubro en ±30 días, supera 100 UTM"]];
+    $("x-req").innerHTML = XCH.map(([k, t, h]) => `<button type="button" data-k="${k}" aria-pressed="false" title="${esc(h)}">${t}</button>`).join("");
+    $("x-req").querySelectorAll("button").forEach((b) => b.addEventListener("click", () => {
+      const k = b.dataset.k;
+      if (estado.xreq.has(k)) estado.xreq.delete(k); else estado.xreq.add(k);
+      b.setAttribute("aria-pressed", estado.xreq.has(k));
+      render();
+    }));
+    let tBuscarX;
+    $("x-buscar").addEventListener("input", () => { clearTimeout(tBuscarX); tBuscarX = setTimeout(render, 250); });
+    for (const id of ["x-estado", "x-ofer", "x-min", "x-monto"]) $(id).addEventListener("change", render);
+    await aplicar();
     mostrar((location.hash || "#resumen").slice(1));
   } catch (err) {
     $("estado").innerHTML = `<span class="aviso">No se pudieron cargar los datos (${esc(err.message)}). Recarga la página.</span>`;

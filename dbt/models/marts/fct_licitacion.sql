@@ -51,6 +51,12 @@ select
     coalesce(s.s_plazo_corto, false) as s_plazo_corto,
     coalesce(s.s_precio_referencia, false) as s_precio_referencia,
     s.razon_sobre_mas_barata,
+    coalesce(x.x_ofertas_identicas, false) as x_ofertas_identicas,
+    coalesce(x.x_fraccionamiento, false) as x_fraccionamiento,
+    x.fraccionamiento_n,
+    x.fraccionamiento_monto,
+    r.rubro1 as rubro1_principal,
+    r.rubro2 as rubro2_principal,
     l.cantidad_reclamos,
     l.es_obra,
     l.link,
@@ -60,3 +66,5 @@ left join {{ ref('estado_licitacion') }} e on e.codigo_estado = l.codigo_estado_
 left join {{ ref('tipo_licitacion') }} t on t.tipo = l.tipo
 left join {{ ref('int_licitacion__ofertas') }} o using (codigo_externo)
 left join {{ ref('int_licitacion_senales') }} s using (codigo_externo)
+left join {{ ref('int_licitacion_senales_extra') }} x using (codigo_externo)
+left join {{ ref('int_licitacion_rubro') }} r on r.codigo_externo = l.codigo_externo and r.es_principal

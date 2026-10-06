@@ -6,7 +6,9 @@ columnas binarias (typed arrays) y catálogos JSON:
 
     lic.bin         una fila por licitación (columnas descritas en meta.json)
     adj.bin         una fila por licitación × proveedor adjudicado en CLP
-    catalogos.json  tipos, regiones, sectores, organismos, estados, proveedores
+    catalogos.json  tipos, regiones, sectores, organismos, estados, proveedores, rubros
+    rubros.b64.txt  rubro (nivel 2) → licitaciones con alguna línea en ese rubro (CSR, uint32)
+    nombres_todos.gz.b64.txt  nombre de todas las licitaciones, gzip (pestaña Explorar)
     codigos.txt     CodigoExterno de cada licitación, en el orden de lic.bin (carga diferida)
     nombres.json    nombre de las licitaciones con puntaje de riesgo ≥ 20 (carga diferida)
     pares.json      pares "acompañante" de proveedores (fct_par_proveedores)
@@ -22,6 +24,7 @@ Uso: uv run --group dashboard python dashboard/web/exportar.py [salida]
 from __future__ import annotations
 
 import base64
+import gzip
 import hashlib
 import io
 import json
@@ -51,6 +54,10 @@ HERE = Path(__file__).resolve().parent
 CHARTJS_TGZ = "https://registry.npmjs.org/chart.js/-/chart.js-4.4.1.tgz"
 CHARTJS_SHA512 = "C74QN1bxwV1v2PEujhmKjOZ7iUM4w6BWs23Md/6aOZZSlwMzeCIDGuZay++rBgChYru7/+QFeoQW0fQoP534Dg=="
 SNAP = ROOT / "data" / "snapshot"
+# Rubros con menos licitaciones se descartan (valores dañados en origen).
+MIN_RUBRO = 30
+# Bits de la columna `extra`, en orden.
+EXTRA = ["x_ofertas_identicas", "x_fraccionamiento"]
 ESTADOS = ["Adjudicada", "Desierta", "Revocada", "Cerrada", "Suspendida", "Publicada"]
 
 
@@ -72,7 +79,7 @@ def catalogo(values) -> tuple[list[str], dict]:
 def main(out: Path) -> None:
     out.mkdir(parents=True, exist_ok=True)
     db = duckdb.connect()
-    for name in ("licitaciones", "adjudicaciones", "proveedores", "pares"):
+    for name in ("licitaciones", "adjudicaciones", "proveedores", "pares", "rubros"):
         db.execute(f"create view {name} as select * from read_parquet('{SNAP / (name + '.parquet')}')")
     corte = db.execute("select max(fecha_publicacion) from licitaciones").fetchone()[0]
     lic = db.execute(
@@ -119,6 +126,27 @@ def main(out: Path) -> None:
         np.nan,
     )
 
+    # Rubros (nivel 2) con al menos MIN_RUBRO licitaciones: los demás son casi siempre valores
+    # dañados en origen (p. ej. "EQdoPOS, PLATAFORMAS…" en el archivo de marzo de 2026).
+    rub = db.execute(
+        f"""
+        select rubro1, rubro2, count(distinct codigo_externo) as n from rubros
+        group by 1, 2 having count(distinct codigo_externo) >= {MIN_RUBRO} order by 1, 2
+        """
+    ).fetchall()
+    rubros1 = sorted({r1 for r1, _, _ in rub})
+    r1_idx = {r: i for i, r in enumerate(rubros1)}
+    rubros2 = [[r1_idx[r1], r2, int(k)] for r1, r2, k in rub]
+    r2_idx = {(r1, r2): i + 1 for i, (r1, r2, _) in enumerate(rub)}  # 0 = sin rubro
+    principal = [r2_idx.get((a, b), 0) for a, b in zip(lic["rubro1_principal"], lic["rubro2_principal"], strict=True)]
+    # Señales complementarias (int_licitacion_senales_extra), no suman al puntaje.
+    extra = np.zeros(len(lic), dtype=np.uint8)
+    for bit, col in enumerate(EXTRA):
+        extra |= lic[col].fillna(False).to_numpy(dtype=bool).astype(np.uint8) << bit
+    estimado_clp = np.where(
+        (lic["moneda"] == "CLP").to_numpy(), lic["monto_estimado"].to_numpy(dtype="float64", na_value=np.nan), np.nan
+    )
+
     columnas = {
         "mes": mes.astype(np.uint8),
         "tipo": lic["tipo"].fillna("?").map(tipo_idx).to_numpy(np.uint8),
@@ -136,6 +164,9 @@ def main(out: Path) -> None:
         # cambian "% sobre lo estimado".
         "razon": razon.astype(np.float64),
         "monto": monto_clp.astype(np.float32),
+        "extra": extra,
+        "rubro": np.array(principal, dtype=np.uint16),
+        "estim": estimado_clp.astype(np.float32),
     }
     layout, offset = [], 0
     with (out / "lic.bin").open("wb") as fh:
@@ -150,6 +181,19 @@ def main(out: Path) -> None:
 
     # Adjudicaciones en CLP con monto > 0 (base de la pregunta 3).
     codigo_idx = {c: i for i, c in enumerate(lic["codigo_externo"])}
+
+    # Rubro → licitaciones (formato CSR: offsets[k]..offsets[k+1] en `lics`), para filtrar por
+    # cualquier rubro de la licitación y no solo el principal.
+    pares_rubro = db.execute("select distinct codigo_externo, rubro1, rubro2 from rubros").fetchall()
+    por_rubro: list[list[int]] = [[] for _ in range(len(rubros2) + 1)]
+    for c, a, b in pares_rubro:
+        k = r2_idx.get((a, b))
+        if k and c in codigo_idx:
+            por_rubro[k].append(codigo_idx[c])
+    por_rubro = [sorted(set(v)) for v in por_rubro]
+    offsets = np.cumsum([0] + [len(v) for v in por_rubro]).astype(np.uint32)
+    lics_rubro = np.array([i for v in por_rubro for i in v], dtype=np.uint32)
+    (out / "rubros.b64.txt").write_bytes(base64.b64encode(offsets.tobytes() + lics_rubro.tobytes()))
     adj = db.execute(
         "select codigo_externo, codigo_proveedor, monto_adjudicado from adjudicaciones "
         "where moneda = 'CLP' and monto_adjudicado > 0"
@@ -185,6 +229,9 @@ def main(out: Path) -> None:
     # Textos de carga diferida: códigos de todas las licitaciones y nombres de las que tienen señales
     # relevantes (puntaje ≥ RIESGO_MEDIO). El enlace a la ficha se deriva del código.
     (out / "codigos.txt").write_text("\n".join(lic["codigo_externo"]))
+    # Nombres de todas las licitaciones (pestaña Explorar), comprimidos: ~19 MB de texto.
+    todos = "\n".join((x or "").replace("\n", " ").replace("\r", " ") for x in lic["nombre"])
+    (out / "nombres_todos.gz.b64.txt").write_bytes(base64.b64encode(gzip.compress(todos.encode(), 9)))
     con_nombre = lic.index[lic["puntaje_riesgo"].fillna(0).to_numpy() >= RIESGO_MEDIO]
     nombres_lic = [[int(i), lic.at[i, "nombre"]] for i in con_nombre]
 
@@ -197,6 +244,8 @@ def main(out: Path) -> None:
                 "organismos": [[c, orgs[c]] for c in org_codes],
                 "estados": ESTADOS,
                 "proveedores": proveedores,
+                "rubros1": rubros1,
+                "rubros2": rubros2,
             },
             ensure_ascii=False,
             separators=(",", ":"),
@@ -224,6 +273,7 @@ def main(out: Path) -> None:
                     "RIESGO_ALTO": RIESGO_ALTO,
                     "RIESGO_MEDIO": RIESGO_MEDIO,
                     "SENALES": [[c, e, w] for c, e, w in SENALES],
+                    "EXTRA": EXTRA,
                     # Tope de cada tipo (UTM) para la pestaña En curso, con el régimen vigente: desde
                     # noviembre de 2025 no se publican LQ ni H2 y LP / B2 cubren hasta 5.000 UTM.
                     "UTM_CLP": 70000,

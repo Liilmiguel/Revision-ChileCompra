@@ -34,3 +34,15 @@ models:
           - not_null
           - accepted_range:
               arguments: {min_value: 0, max_value: 100}
+
+  - name: int_licitacion_rubro
+    description: Rubros de nivel 1 y 2 de cada licitación con su número de líneas; es_principal marca el de más líneas.
+    tests:
+      - unique_combination:
+          arguments: {columns: [codigo_externo, rubro1, rubro2]}
+
+  - name: int_licitacion_senales_extra
+    description: Señales complementarias (no suman al puntaje) — ofertas idénticas no redondas y fraccionamiento de compras menores.
+    columns:
+      - name: codigo_externo
+        tests: [unique, not_null]

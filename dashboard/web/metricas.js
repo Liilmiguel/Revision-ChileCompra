@@ -24,7 +24,8 @@
     };
   }
 
-  // Filtros: { desde, hasta (meses desde 2024-01), tipo, region, sector, org (índices o null) }
+  // Filtros: { desde, hasta (meses desde 2024-01), tipo, region, sector, org (índices o null),
+  // rubroMask (Uint8Array: 1 si la licitación tiene alguna línea del rubro elegido, o null) }
   function mascara(d, f) {
     const { mes, tipo, region, sector, org } = d.c;
     const out = new Uint8Array(d.n);
@@ -35,7 +36,8 @@
         (f.tipo == null || tipo[i] === f.tipo) &&
         (f.region == null || region[i] === f.region) &&
         (f.sector == null || sector[i] === f.sector) &&
-        (f.org == null || org[i] === f.org)
+        (f.org == null || org[i] === f.org) &&
+        (f.rubroMask == null || f.rubroMask[i] === 1)
           ? 1
           : 0;
     }
