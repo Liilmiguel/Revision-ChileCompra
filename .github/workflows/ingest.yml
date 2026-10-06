@@ -35,7 +35,7 @@ jobs:
       - if: steps.check.outputs.ready == 'true'
         uses: astral-sh/setup-uv@v6
       - if: steps.check.outputs.ready == 'true'
-        run: uv sync --locked --no-dev
+        run: uv sync --locked --no-dev --group dbt
       - name: Descarga masiva (meses recientes; salta los que no cambiaron)
         if: steps.check.outputs.ready == 'true'
         env:
@@ -44,5 +44,17 @@ jobs:
       - name: Incremental API (ayer)
         if: steps.check.outputs.ready == 'true'
         run: uv run observatorio incremental
+      - name: dbt (staging → marts + tests de datos)
+        if: steps.check.outputs.ready == 'true'
+        run: |
+          eval "$(uv run python -c '
+          import os, shlex, urllib.parse as u
+          p = u.urlparse(os.environ["DATABASE_URL"])
+          for k, v in {"PGHOST": p.hostname, "PGPORT": p.port or 5432, "PGUSER": p.username,
+                       "PGPASSWORD": u.unquote(p.password or ""), "PGDATABASE": p.path.lstrip("/")}.items():
+              print(f"export {k}={shlex.quote(str(v))}")
+          ')"
+          echo "::add-mask::$PGPASSWORD"
+          cd dbt && DBT_PROFILES_DIR=. uv run dbt build
       - if: steps.check.outputs.ready == 'true'
         run: uv run observatorio status >> "$GITHUB_STEP_SUMMARY"

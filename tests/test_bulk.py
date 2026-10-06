@@ -71,3 +71,20 @@ def test_months_between(start, end, expected):
 def test_mes_invalido():
     with pytest.raises(ValueError):
         bulk.parse_month("2026-13")
+
+
+def test_registros_malformados_se_descartan_y_cuentan():
+    # Un byte dañado en origen ("P"DRO) desarma el entrecomillado de ese registro.
+    data = b'"a";"b"\r"1";"2"\r"P"DRO";"x";"y"\r"3";"4"\r'
+    stats = {}
+    rows = list(
+        bulk.read_csv(io.TextIOWrapper(io.BytesIO(data), encoding="latin-1", newline=""), stats, max_malformados=0.5)
+    )
+    assert rows == [{"a": "1", "b": "2"}, {"a": "3", "b": "4"}]
+    assert stats == {"registros": 3, "malformados": 1}
+
+
+def test_demasiados_malformados_falla():
+    data = b'"a";"b"\r"1";"2"\r"P"DRO";"x";"y"\r'
+    with pytest.raises(bulk.DemasiadosMalformados):
+        list(bulk.read_csv(io.TextIOWrapper(io.BytesIO(data), encoding="latin-1", newline=""), max_malformados=0.1))

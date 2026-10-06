@@ -1,0 +1,13 @@
+codigo_estado,estado_grupo,es_final
+5,Publicada,false
+6,Cerrada,false
+7,Desierta,true
+8,Adjudicada,true
+9,Adjudicada,true
+10,Adjudicada,true
+11,Cerrada,false
+12,Cerrada,false
+13,Cerrada,false
+14,Cerrada,false
+15,Revocada,true
+16,Suspendida,false

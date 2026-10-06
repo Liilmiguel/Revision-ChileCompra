@@ -5,6 +5,8 @@ services:
       POSTGRES_USER: observatorio
       POSTGRES_PASSWORD: observatorio
       POSTGRES_DB: observatorio
+    # El /dev/shm de 64 MB que Docker da por defecto no alcanza para VACUUM ni consultas paralelas.
+    shm_size: 1g
     ports:
       - "5432:5432"
     volumes:

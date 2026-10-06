@@ -49,7 +49,7 @@ create table if not exists raw.extraction_log (
     status         text        not null,  -- 'ok' | 'error'
     rows           integer,
     remote_version text,                  -- Last-Modified de la descarga masiva
-    error          text,
+    error          text,                  -- error, o nota en una carga ok (p. ej. registros descartados)
     started_at     timestamptz not null default now(),
     finished_at    timestamptz
 );

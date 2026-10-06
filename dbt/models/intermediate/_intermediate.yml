@@ -1,0 +1,13 @@
+version: 2
+
+models:
+  - name: int_linea_adjudicada
+    description: Líneas adjudicadas con la marca de monto atípico (error de captura) y su motivo.
+    tests:
+      - unique_combination:
+          arguments: {columns: [source_month, row_num]}
+    columns:
+      - name: motivo_atipico
+        tests:
+          - accepted_values:
+              arguments: {values: ['cantidad', 'tope', 'estimado']}

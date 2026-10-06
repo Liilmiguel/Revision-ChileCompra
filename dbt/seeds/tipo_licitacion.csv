@@ -1,0 +1,14 @@
+tipo,descripcion,orden
+L1,Pública < 100 UTM,1
+LE,Pública 100–1.000 UTM,2
+LP,Pública 1.000–2.000 UTM,3
+LQ,Pública 2.000–5.000 UTM,4
+LR,Pública ≥ 5.000 UTM,5
+LS,Servicios personales especializados,6
+E2,Privada < 100 UTM,7
+CO,Privada 100–1.000 UTM,8
+B2,Privada 1.000–2.000 UTM,9
+H2,Privada 2.000–5.000 UTM,10
+I2,Privada ≥ 5.000 UTM,11
+O1,Obra pública,12
+O2,Obra privada,13

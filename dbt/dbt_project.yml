@@ -1,0 +1,30 @@
+name: observatorio
+version: "0.1.0"
+profile: observatorio
+config-version: 2
+
+model-paths: ["models"]
+macro-paths: ["macros"]
+test-paths: ["tests"]
+seed-paths: ["seeds"]
+
+vars:
+  # Valor aproximado de la UTM 2024–2026, solo para los topes de int_linea_adjudicada
+  # (umbral de 10×: insensible a la variación mensual).
+  utm_clp: 70000
+
+models:
+  observatorio:
+    staging:
+      +schema: staging
+      +materialized: view
+    intermediate:
+      +schema: intermediate
+      +materialized: table
+    marts:
+      +schema: marts
+      +materialized: table
+
+seeds:
+  observatorio:
+    +schema: ref

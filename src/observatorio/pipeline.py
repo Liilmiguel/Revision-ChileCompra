@@ -40,11 +40,15 @@ def backfill(
                     continue
                 log.info("descargando %s", month)
                 zip_path = bulk.download(month, raw_dir, http)
-                n = load_raw.replace_bulk_month(conn, month, bulk.read_rows(zip_path))
-                load_raw.log_extraction(conn, "bulk", month, "ok", rows=n, remote_version=version, started_at=started)
+                stats: dict = {}
+                n = load_raw.replace_bulk_month(conn, month, bulk.read_rows(zip_path, stats))
+                nota = f"{stats['malformados']} registros malformados descartados" if stats.get("malformados") else None
+                load_raw.log_extraction(
+                    conn, "bulk", month, "ok", rows=n, remote_version=version, error=nota, started_at=started
+                )
                 if not keep_zip:
                     zip_path.unlink()
-                results[month] = f"{n} filas"
+                results[month] = f"{n} filas" + (f" ({nota})" if nota else "")
             except Exception as exc:  # noqa: BLE001 - se registra y se sigue con el próximo mes
                 conn.rollback()
                 load_raw.log_extraction(conn, "bulk", month, "error", error=str(exc)[:2000], started_at=started)

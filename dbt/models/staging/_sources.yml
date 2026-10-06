@@ -1,0 +1,14 @@
+version: 2
+
+sources:
+  - name: raw
+    schema: raw
+    tables:
+      - name: bulk_licitacion
+        description: Primera fila del CSV masivo por licitación y mes (texto).
+      - name: bulk_fila
+        description: Cada fila del CSV masivo, solo con las columnas que difieren de la cabecera.
+      - name: bulk_fila_completa
+        description: Vista que reconstruye cada fila del CSV masivo (licitación × ítem × oferta).
+      - name: api_licitacion
+        description: Último detalle de la API por CodigoExterno.

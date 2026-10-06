@@ -19,6 +19,16 @@ build-backend = "hatchling.build"
 packages = ["src/observatorio"]
 
 [dependency-groups]
+dashboard = [
+    "duckdb>=1.3",
+    "pandas>=2.2",
+    "plotly>=6",
+    "pyarrow>=18",
+    "streamlit>=1.50",
+]
+dbt = [
+    "dbt-postgres>=1.9",
+]
 dev = ["ruff>=0.6", "pytest>=8"]
 
 [tool.ruff]
