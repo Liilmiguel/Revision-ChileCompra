@@ -1,0 +1,40 @@
+version: 2
+
+models:
+  - name: stg_bulk__licitacion
+    description: Licitación de la descarga masiva, una fila por CodigoExterno, columnas tipadas.
+    columns:
+      - name: codigo_externo
+        tests: [unique, not_null]
+      - name: codigo_estado
+        tests:
+          - not_null
+          - relationships:
+              arguments: {to: ref('estado_licitacion'), field: codigo_estado}
+      - name: codigo_organismo
+        tests: [not_null]
+      - name: fecha_publicacion
+        tests: [not_null]
+      - name: moneda
+        tests:
+          - accepted_values:
+              arguments: {values: ['CLP', 'CLF', 'USD', 'EUR', 'UTM']}
+
+  - name: stg_bulk__oferta
+    description: Una fila por línea del CSV masivo (licitación × ítem × oferta).
+    tests:
+      - unique_combination:
+          arguments: {columns: [source_month, row_num]}
+    columns:
+      - name: codigo_externo
+        tests:
+          - not_null
+          - relationships:
+              arguments: {to: ref('stg_bulk__licitacion'), field: codigo_externo}
+      - name: es_seleccionada
+        tests: [not_null]
+
+  - name: stg_api__licitacion
+    columns:
+      - name: codigo_externo
+        tests: [unique, not_null]

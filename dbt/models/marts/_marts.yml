@@ -1,0 +1,43 @@
+version: 2
+
+models:
+  - name: fct_licitacion
+    description: >
+      Una fila por licitación. Montos en la moneda de la licitación (`moneda`) o de las
+      ofertas adjudicadas (`moneda_adjudicada`, 'MIXTA' si son varias); no se convierten.
+    columns:
+      - name: codigo_externo
+        tests: [unique, not_null]
+      - name: estado_grupo
+        tests:
+          - not_null
+          - accepted_values:
+              arguments: {values: ['Publicada', 'Cerrada', 'Desierta', 'Adjudicada', 'Revocada', 'Suspendida']}
+      - name: fecha_adjudicacion
+        description: Solo para licitaciones adjudicadas; en las demás la fuente trae una fecha estimada.
+      - name: monto_adjudicado
+        description: >
+          Suma de las líneas adjudicadas sin las de cantidad adjudicada atípica
+          (`n_lineas_atipicas`); `monto_adjudicado_bruto` las incluye.
+      - name: razon_adjudicado_estimado
+        description: monto_adjudicado / monto_estimado cuando ambos están en la misma moneda.
+      - name: es_oferente_unico
+        description: Una sola empresa ofertó (por CodigoProveedor). Null si no hay ofertas en la masiva.
+
+  - name: fct_oferta
+    description: Una fila por oferta de un proveedor a una línea de una licitación.
+    columns:
+      - name: codigo_externo
+        tests: [not_null]
+      - name: monto_adjudicado
+        description: Monto de la línea adjudicada (unitario × cantidad adjudicada); null si la oferta no fue seleccionada.
+
+  - name: dim_proveedor
+    columns:
+      - name: codigo_proveedor
+        tests: [unique, not_null]
+
+  - name: dim_organismo
+    columns:
+      - name: codigo_organismo
+        tests: [unique, not_null]

@@ -1,0 +1,13 @@
+# Lee la conexión de las variables PG* (por defecto, la base del docker-compose).
+observatorio:
+  target: dev
+  outputs:
+    dev:
+      type: postgres
+      host: "{{ env_var('PGHOST', 'localhost') }}"
+      port: "{{ env_var('PGPORT', '5432') | int }}"
+      user: "{{ env_var('PGUSER', 'observatorio') }}"
+      password: "{{ env_var('PGPASSWORD', 'observatorio') }}"
+      dbname: "{{ env_var('PGDATABASE', 'observatorio') }}"
+      schema: public
+      threads: 4

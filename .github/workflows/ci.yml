@@ -21,6 +21,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v6
-      - run: uv sync --locked
+      - run: uv sync --locked --all-groups
       - run: uv run ruff check . && uv run ruff format --check .
       - run: uv run pytest -q
+      # Sobre raw vacío: valida que los modelos compilan y corren y que los tests de datos son ejecutables.
+      - run: uv run observatorio init-db
+      - run: cd dbt && uv run dbt build
+        env:
+          DBT_PROFILES_DIR: .
