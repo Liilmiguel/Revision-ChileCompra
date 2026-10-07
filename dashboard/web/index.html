@@ -368,6 +368,8 @@ footer { margin-top: 32px; font-size: 12.5px; color: var(--muted); }
       <div class="controles">
         <div class="campo" style="flex:1 1 260px"><label for="x-buscar">Buscar en nombre, código u organismo</label>
           <input type="search" id="x-buscar" placeholder="p. ej. radio, fibra óptica, antena" autocomplete="off" style="width:100%"></div>
+        <div class="campo" style="flex:1 1 220px"><label for="x-ganador">Ganador (nombre o RUT)</label>
+          <input type="search" id="x-ganador" placeholder="p. ej. Scienza o 77.634.874-0" autocomplete="off" style="width:100%"></div>
         <div class="campo"><label for="x-estado">Estado</label><select id="x-estado"><option value="">Todos</option></select></div>
         <div class="campo"><label for="x-ofer">Oferentes</label>
           <select id="x-ofer"><option value="">Todos</option><option value="0">Sin ofertas</option><option value="1">Uno (oferente único)</option><option value="2">2 a 3</option><option value="4">4 o más</option></select></div>
@@ -1103,7 +1105,7 @@ function cargarNombresTodos() {
 const EXTRA_TXT = ["ofertas idénticas", "fraccionamiento"];
 const marcasExtra = (bits) => EXTRA_TXT.map((t, b) => (bits & (1 << b) ? `<span class="marca baja">${t}</span>` : "")).join("");
 // Ganadores por licitación (todas las adjudicaciones en CLP), calculado una vez.
-let GAN = null;
+let GAN = null, PROVN = null;
 function ganadores(li) {
   if (!GAN) {
     GAN = new Map();
@@ -1121,6 +1123,16 @@ function renderExplorar(X) {
   if (!NOMT) { $("x-nota").textContent = "Cargando nombres de las licitaciones…"; cargarNombresTodos(); return; }
   const { estado: est, ofer, puntaje, senal, extra, org, tipo, monto, estim, mes, rubro } = D.c;
   const q = normal($("x-buscar").value.trim());
+  // Ganador: proveedores cuyo nombre o RUT (sin puntos) contiene el texto.
+  const qg = normal($("x-ganador").value.trim());
+  let provSel = null;
+  if (qg) {
+    const rut = (t) => t.replace(/[.\s-]/g, "");
+    if (!PROVN) PROVN = CAT.proveedores.map(([n, r]) => [normal(n), rut(normal(r || ""))]);
+    const qr = rut(qg);
+    provSel = new Set();
+    PROVN.forEach(([n, r], i) => { if (n.includes(qg) || (qr.length >= 4 && r.includes(qr))) provSel.add(i); });
+  }
   const fe = $("x-estado").value === "" ? null : Number($("x-estado").value);
   const fo = $("x-ofer").value;
   const min = Number($("x-min").value);
@@ -1140,6 +1152,7 @@ function renderExplorar(X) {
     if (min === 1 ? puntaje[i] === 0 && !extra[i] : puntaje[i] < min) continue;
     if ((senal[i] & reqS) !== reqS || (extra[i] & reqX) !== reqX) continue;
     if (mmin) { const m = Number.isNaN(monto[i]) ? estim[i] : monto[i]; if (!(m >= mmin)) continue; }
+    if (provSel && !ganadores(i).some((p) => provSel.has(p))) continue;
     if (q && !NOML[i].includes(q) && !orgCalza.has(org[i]) && !(CODIGOS && CODIGOS[i].toLowerCase().includes(q))) continue;
     filas.push(i);
   }
@@ -1161,7 +1174,17 @@ function renderExplorar(X) {
     { k: "s", t: "Señales", v: (i) => marcas(senal[i]) + marcasExtra(extra[i]), html: 1 },
     { k: "f", t: "Ficha", v: (i) => `<a href="${FICHA(codigo(i))}" target="_blank" rel="noopener">Abrir</a>`, html: 1 },
   ], filas, "explorar", { k: "m", dir: "desc" });
-  $("x-nota").textContent = `${num(r.total)} licitaciones${r.total > r.mostradas ? ` · se muestran ${num(r.mostradas)} (ordena o afina la búsqueda para ver otras)` : ""}. La búsqueda ignora tildes y mayúsculas. Clic en un ganador para ver su ficha.`;
+  // Con ganador: monto adjudicado a esos proveedores en las licitaciones filtradas.
+  let nprov = "";
+  if (provSel) {
+    const enFilas = new Uint8Array(D.n);
+    for (const i of filas) enFilas[i] = 1;
+    let m = 0;
+    for (let j = 0; j < D.adj.lic.length; j++) if (enFilas[D.adj.lic[j]] && provSel.has(D.adj.prov[j])) m += D.adj.monto[j];
+    const quien = provSel.size === 1 ? prov([...provSel][0])[0] : `${num(provSel.size)} proveedores que calzan con «${$("x-ganador").value.trim()}»`;
+    nprov = provSel.size ? ` ganadas por ${quien}, ${clp(m)} adjudicados` : ` (ningún proveedor calza con «${$("x-ganador").value.trim()}»)`;
+  }
+  $("x-nota").textContent = `${num(r.total)} licitaciones${nprov}${r.total > r.mostradas ? ` · se muestran ${num(r.mostradas)} (ordena o afina la búsqueda para ver otras)` : ""}. La búsqueda ignora tildes y mayúsculas; el ganador considera las adjudicaciones en pesos. Clic en un ganador para ver su ficha.`;
   $("t-explorar").querySelectorAll("a[data-prov]").forEach((el) => el.addEventListener("click", (e) => { e.preventDefault(); mostrar("alertas"); abrirFicha(Number(el.dataset.prov)); }));
 }
 
@@ -1417,7 +1440,7 @@ async function iniciar() {
       render();
     }));
     let tBuscarX;
-    $("x-buscar").addEventListener("input", () => { clearTimeout(tBuscarX); tBuscarX = setTimeout(render, 250); });
+    for (const id of ["x-buscar", "x-ganador"]) $(id).addEventListener("input", () => { clearTimeout(tBuscarX); tBuscarX = setTimeout(render, 250); });
     for (const id of ["x-estado", "x-ofer", "x-min", "x-monto"]) $(id).addEventListener("change", render);
     document.querySelectorAll("#seg-compras button").forEach((b) => b.addEventListener("click", () => {
       estado.cvista = b.dataset.cv;
