@@ -509,21 +509,22 @@
   // honorarios) quedaba en 100. Los componentes de trato directo se escalan por monto.
   const SCORE = [
     // [clave, peso, descripción]
-    ["riesgo", 15, "Puntaje de riesgo medio de sus licitaciones ganadas, ponderado por monto (50 o más = máximo)"],
+    ["riesgo", 10, "Puntaje de riesgo medio de sus licitaciones ganadas, ponderado por monto (50 o más = máximo)"],
     ["barata", 15, "Parte del monto adjudicado pagada sobre la oferta aceptada más barata (30 % o más = máximo)"],
     ["estimado", 10, "Parte del monto adjudicado que excede lo estimado (20 % o más = máximo)"],
     ["unico", 10, "Parte de su monto en licitaciones donde fue el único oferente"],
-    ["captura", 10, "Parte del gasto en licitaciones de su organismo principal que se lleva"],
+    ["captura", 5, "Parte del gasto en licitaciones de su organismo principal que se lleva"],
     ["acomp", 5, "Tiene acompañantes: proveedores que ofertan con él sin ganarle nunca"],
     ["td", 15, "Parte de lo que recibe que llega por trato directo, escalada por monto (pleno desde 1.000 UTM en tratos directos)"],
     ["emergencia", 5, "Parte de sus tratos directos por emergencia, escalada por monto (pleno desde 1.000 UTM)"],
     ["fracc", 10, "Parte de sus Compras Ágiles en episodios de fraccionamiento (desde 5 Compras Ágiles)"],
     ["banda", 5, "Parte de sus Compras Ágiles entre 90 % y 100 % del tope (15 % o más = máximo; nacional ~3 %; desde 10)"],
+    ["precio", 10, "Exceso de precio unitario sobre la mediana del mismo producto, como parte de sus compras directas (10 % o más = máximo)"],
   ];
   const TD_PLENO = 1000 * 72000; // 1.000 UTM
   const lim = (x) => Math.max(0, Math.min(1, x));
 
-  function proveedoresScore(d, mk, pares, cat, oc) {
+  function proveedoresScore(d, mk, pares, cat, oc, excesoPrecio) {
     const K = d.k;
     const { estado, puntaje, ofer, razon, rsmb } = d.c;
     const A = d.adj;
@@ -553,6 +554,8 @@
         exito: ofertadas ? Math.min(1, e.lics.size / ofertadas) : null,
         puntaje: e.m ? e.mp / e.m : null, unico: e.m ? e.mu / e.m : null,
         barata: e.mb ? e.b / e.mb : null, estimado: e.me ? e.ex / e.me : null,
+        // Pesos adjudicados por sobre lo estimado (su parte de cada licitación ganada).
+        sobre_est_monto: e.ex,
         captura: r ? r.captura : null, dependencia: r ? r.dependencia : null, acomp: r ? r.n_acompanantes : 0,
         org_lic: r ? r.n_org : 0,
       });
@@ -577,6 +580,9 @@
       f.td_pct = f.total ? f.td_monto / f.total : null;
       f.fracc_pct = f.ag_n ? f.ag_fracc / f.ag_n : null;
       f.banda_pct = f.ag_n ? f.ag_banda / f.ag_n : null;
+      const ex = excesoPrecio && excesoPrecio[f.codigo];
+      f.exceso_precio = ex ? ex[0] : 0;
+      f.exceso_lineas = ex ? ex[1] : 0;
       const comp = {};
       if (f.lic_n) {
         comp.riesgo = lim(f.puntaje / 50);
@@ -593,6 +599,7 @@
       }
       if (f.ag_n >= 5) comp.fracc = lim(f.fracc_pct);
       if (f.ag_n >= 10) comp.banda = lim(f.banda_pct / 0.15);
+      if (excesoPrecio && f.ag_monto + f.td_monto > 0) comp.precio = lim(f.exceso_precio / (f.ag_monto + f.td_monto) / 0.1);
       let s = 0;
       for (const [k, x] of Object.entries(comp)) s += peso.get(k) * x;
       f.comp = comp;

@@ -1,4 +1,4 @@
-"""Línea de comandos: `observatorio {init-db,backfill,incremental,status,snapshot,vivo,compras}`."""
+"""Línea de comandos: `observatorio {init-db,backfill,incremental,status,snapshot,vivo,compras,precios}`."""
 
 from __future__ import annotations
 
@@ -41,7 +41,21 @@ def main(argv: list[str] | None = None) -> None:
     p_compras = sub.add_parser("compras", help="Compras Ágiles y tratos directos (órdenes de compra) para la web")
     p_compras.add_argument("--meses", type=int, default=12, help="meses completos más recientes")
 
+    p_precios = sub.add_parser("precios", help="comparación de precios unitarios en órdenes de compra para la web")
+    p_precios.add_argument("--meses", type=int, default=12, help="meses completos más recientes")
+
     args = parser.parse_args(argv)
+    if args.command == "precios":
+        from observatorio import precios
+
+        logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
+        _print(
+            {
+                k: str(v)
+                for k, v in precios.generar(config.ROOT / "data" / "compras", config.raw_dir(), args.meses).items()
+            }
+        )
+        return
     if args.command == "compras":
         from observatorio import compras
 

@@ -150,23 +150,60 @@ componentes 0–1 con pesos fijos que suman 100; sin datos, el componente aporta
 
 | componente | peso | lleno cuando |
 |---|---|---|
-| riesgo medio de sus licitaciones (ponderado por monto) | 15 | puntaje medio ≥ 50 |
+| riesgo medio de sus licitaciones (ponderado por monto) | 10 | puntaje medio ≥ 50 |
 | monto pagado sobre la oferta más barata | 15 | ≥ 30 % del monto |
 | monto que excede lo estimado | 10 | ≥ 20 % del monto |
 | monto sin competencia (oferente único) | 10 | 100 % |
-| captura del organismo principal | 10 | 100 % de su gasto |
+| captura del organismo principal | 5 | 100 % de su gasto |
 | acompañantes | 5 | tiene alguno |
 | parte recibida por trato directo × monto | 15 | 100 % y ≥ 1.000 UTM en tratos directos |
 | tratos directos por emergencia × monto | 5 | 100 % y ≥ 1.000 UTM |
 | Compras Ágiles en fraccionamiento (desde 5) | 10 | 100 % |
 | Compras Ágiles entre 90 % y 100 % del tope (desde 10) | 5 | ≥ 15 % (nacional ~3 %) |
+| exceso de precio unitario sobre la mediana / compras directas | 10 | ≥ 10 % |
 
 Dos decisiones de calibración: (1) la primera versión promediaba solo los componentes con
 datos, y cualquier persona con diez tratos directos chicos (honorarios, talleres) quedaba en
 100; por eso pesos fijos y tratos directos escalados por monto. (2) «Sobre lo estimado» como
 razón sin acotar lo dominaban estimados mal digitados (razones de 20 o más); se usa la parte
-del monto que excede lo estimado, entre 0 y 1. Con datos al 6 de octubre de 2026: mediana 7,
-p99 32, máximo 51. El puntaje ordena dónde revisar primero; no prueba nada.
+del monto que excede lo estimado, entre 0 y 1. Con datos al 6 de octubre de 2026: mediana 6,
+p99 29, máximo 47. El puntaje ordena dónde revisar primero; no prueba nada.
+
+**Monto sobre lo estimado** (columna): suma, en pesos, de lo adjudicado por sobre el monto
+estimado en cada licitación que ganó (su parte). En total $501.500 millones entre 5.095
+proveedores; lo encabezan constructoras (Constructora Tricam: $35.300 millones sobre lo
+estimado en 33 licitaciones). Ojo: un estimado anual frente a un contrato plurianual, o un
+estimado mal digitado, también aparecen como "sobre lo estimado".
+
+## Precios unitarios (vistas de precio en «Compras directas»)
+
+`src/observatorio/precios.py` (`make precios`) compara 3,4 millones de líneas de bienes en
+pesos de las órdenes de compra del año (licitación, convenio marco, Compra Ágil y trato
+directo). Mismo producto = mismo código ONU, misma unidad y mismas primeras 10 palabras de
+la especificación; las de convenio marco traen el código del catálogo, que lo identifica.
+
+Calibración (cuatro corridas):
+1. Con servicios incluidos, los casos los dominaban guardias «por mes» o transporte
+   «global»: la unidad describe un alcance, no una cantidad. Se excluyen servicios
+   (segmentos UNSPSC 70–95, unidades como mes/global/hora y glosas con «servicio»,
+   «arriendo», «según detalle», «insumos»…).
+2. Excluir las líneas sin unidad sacaba también las de convenio marco, las mejores
+   referencias (de 880 mil líneas comparables a 148 mil): se recuperan por su código.
+3. Con 6 palabras, los frascos de 4 ml y 10 ml de nivolumab eran el mismo producto: 10.
+4. Una línea de cantidad 1 a 100+ veces la mediana es un contrato completo cargado como un
+   ítem (pembrolizumab a $57 mil millones): pasa a «sin precio unitario». Razones sobre 50
+   veces se descartan como errores de unidad.
+
+Resultado (oct. 2025 – sep. 2026): 784 mil líneas comparables (5+ compras de 2+
+organismos). **Sobre la mediana** (compra directa a 3+ veces): 38 con exceso de $1 millón o
+más ($72 millones). **Mismo proveedor, precios distintos** (1,5+ veces): 384 productos,
+$2.293 millones pagados sobre el precio mínimo del mismo proveedor. **Sin precio unitario**
+(bienes sobre 1.000 UTM): 268 compras directas por $292 mil millones; Trikafta
+($134.500 millones) y pembrolizumab ($68.000 millones) son el 70 %.
+
+La conclusión incómoda: en compras directas el precio unitario solo se puede comparar en
+una fracción de los casos. Las descripciones son texto libre y los contratos grandes se
+cargan como un ítem sin cantidad: justo donde está la plata, no hay precio que comparar.
 
 ## Licitaciones en curso (pestaña «En curso» de la versión web)
 

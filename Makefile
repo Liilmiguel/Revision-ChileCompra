@@ -2,7 +2,7 @@ FROM ?= 2025-1
 TO ?=
 DAY ?=
 
-.PHONY: up down init backfill incremental status dbt dbt-full snapshot analysis dashboard vivo compras web test lint
+.PHONY: up down init backfill incremental status dbt dbt-full snapshot analysis dashboard vivo compras precios web test lint
 
 up:  ## levanta PostgreSQL y espera a que acepte conexiones
 	docker compose up -d --wait db
@@ -42,6 +42,9 @@ vivo:  ## licitaciones en curso: abiertas (API) y en evaluación (masiva) → da
 
 compras:  ## Compras Ágiles y tratos directos de los últimos 12 meses → data/compras/compras.json
 	uv run observatorio compras
+
+precios:  ## precios unitarios de órdenes de compra (12 meses) → data/compras/precios.json
+	uv run observatorio precios
 
 web:  ## exporta data/web/ para la versión web (claude.ai) y verifica sus métricas contra Python
 	uv run --group dashboard python dashboard/web/exportar.py

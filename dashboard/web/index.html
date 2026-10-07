@@ -403,7 +403,7 @@ footer { margin-top: 32px; font-size: 12.5px; color: var(--muted); }
       <div class="controles">
         <div class="campo"><label>Ver</label>
           <div class="seg" role="group" aria-label="Ver" id="seg-compras">
-            <button data-cv="fracc" aria-pressed="true">Fraccionamiento</button><button data-cv="tdrec" aria-pressed="false">Tratos directos recurrentes</button><button data-cv="tdalto" aria-pressed="false">Tratos directos de monto alto</button><button data-cv="orgs" aria-pressed="false">Organismos</button>
+            <button data-cv="fracc" aria-pressed="true">Fraccionamiento</button><button data-cv="tdrec" aria-pressed="false">Tratos directos recurrentes</button><button data-cv="tdalto" aria-pressed="false">Tratos directos de monto alto</button><button data-cv="orgs" aria-pressed="false">Organismos</button><button data-cv="psobre" aria-pressed="false">Precio sobre la mediana</button><button data-cv="pmismo" aria-pressed="false">Mismo proveedor, precios distintos</button><button data-cv="popaca" aria-pressed="false">Sin precio unitario</button>
           </div></div>
         <div class="campo" style="flex:1 1 220px"><label for="c-buscar">Buscar</label>
           <input type="search" id="c-buscar" placeholder="Organismo, proveedor, rubro o código" autocomplete="off" style="width:100%"></div>
@@ -467,7 +467,8 @@ footer { margin-top: 32px; font-size: 12.5px; color: var(--muted); }
         <dt>Rubro</dt><dd>Clasificación de los productos de cada línea (niveles 1 y 2 de ChileCompra, basada en UNSPSC). Una licitación con líneas de varios rubros aparece en cada uno; «rubro principal» es el de más líneas. Se omiten rubros con menos de 30 licitaciones (casi siempre valores dañados en origen).</dd>
         <dt>Señales complementarias</dt><dd>No suman al puntaje. <b>Ofertas idénticas</b>: dos o más proveedores ofertan exactamente el mismo total, desde $100.000 y no múltiplo de $1.000 (con montos redondos las coincidencias son comunes); patrón de ofertas coordinadas, aunque también aparece con precios regulados. <b>Fraccionamiento</b>: compra L1 o E2 (bajo 100 UTM) adjudicada a un proveedor que en ±30 días ganó otras 2 o más del mismo organismo y rubro, sumando más de 100 UTM. Se probó y descartó «estimado justo bajo el tope del tipo»: los estimados se acumulan en montos redondos, no pegados al tope.</dd>
         <dt>Compras directas</dt><dd>Órdenes de compra de los últimos 12 meses completos (descarga masiva de órdenes de compra): Compras Ágiles (hasta 100 UTM con impuestos) y tratos directos. El tope de cada mes se mide en los datos (percentil 99,95 de los montos). <b>Fraccionamiento</b>: 3 o más Compras Ágiles del mismo organismo al mismo proveedor y rubro en 30 días que juntas superan el tope; en hospitales suele reflejar compras recurrentes de insumos que debieron ir por licitación de suministro o convenio. <b>Bajo el tope</b>: entre 90 % y 100 % del tope; se compara la proporción de cada organismo con la nacional. <b>Trato directo recurrente</b>: 5 o más del mismo organismo al mismo proveedor. <b>Monto alto</b>: sobre 1.000 UTM.</dd>
-        <dt>Puntaje de proveedores</dt><dd>Suma de diez componentes entre 0 y 1 con pesos fijos que suman 100; un componente sin datos aporta 0: riesgo medio de sus licitaciones ponderado por monto (15), parte del monto pagada sobre la oferta aceptada más barata (15), parte del monto que excede lo estimado (10), monto en licitaciones sin competencia (10), captura de su organismo principal (10), acompañantes (5), parte de lo recibido por trato directo (15) y parte de sus tratos directos por emergencia (5), ambos escalados por monto hasta 1.000 UTM, Compras Ágiles en fraccionamiento (10) y Compras Ágiles justo bajo el tope (5). Se descartó renormalizar por los componentes con datos: cualquier persona con diez tratos directos chicos (honorarios) quedaba en 100. Las licitaciones siguen los filtros; las compras directas son de los últimos 12 meses. Un puntaje alto indica dónde revisar primero, no una irregularidad.</dd>
+        <dt>Puntaje de proveedores</dt><dd>Suma de diez componentes entre 0 y 1 con pesos fijos que suman 100; un componente sin datos aporta 0: riesgo medio de sus licitaciones ponderado por monto (10), parte del monto pagada sobre la oferta aceptada más barata (15), parte del monto que excede lo estimado (10), monto en licitaciones sin competencia (10), captura de su organismo principal (5), acompañantes (5), parte de lo recibido por trato directo (15) y parte de sus tratos directos por emergencia (5), ambos escalados por monto hasta 1.000 UTM, Compras Ágiles en fraccionamiento (10), Compras Ágiles justo bajo el tope (5) y exceso de precio unitario sobre la mediana del mismo producto (10). Se descartó renormalizar por los componentes con datos: cualquier persona con diez tratos directos chicos (honorarios) quedaba en 100. Las licitaciones siguen los filtros; las compras directas son de los últimos 12 meses. Un puntaje alto indica dónde revisar primero, no una irregularidad.</dd>
+        <dt>Precios unitarios</dt><dd>Todas las líneas en pesos de las órdenes de compra del año (licitación, convenio marco y compras directas). Mismo producto: mismo código ONU, misma unidad y mismas primeras 6 palabras de la especificación. Solo bienes: en servicios la unidad («mes», «global») no es una cantidad comparable. <b>Sobre la mediana</b>: compra directa a 3 o más veces la mediana (con 5+ compras de 2+ organismos). <b>Mismo proveedor, precios distintos</b>: el proveedor vendió el mismo producto por compra directa a precios que difieren 1,5 o más veces. <b>Sin precio unitario</b>: compra directa sobre 1.000 UTM cargada como «1 unidad no definida», «global» o como un ítem de cantidad 1 a 100+ veces la mediana. Se excluyen razones sobre 50 veces (casi siempre errores de unidad).</dd>
         <dt>En curso</dt><dd>Abiertas: listado de licitaciones publicadas de la API de ChileCompra y el detalle de cada una. En evaluación: cerradas sin adjudicar de los últimos cuatro meses de la descarga masiva, con sus ofertas. Señales (puntos): oferente único (25), oferta junto a un acompañante habitual (20), todas las ofertas más de 20 % sobre lo estimado (15), estimado más de 1,5 veces el tope del tramo de su tipo (15), plazo en el 10 % más corto de su tipo (10), organismo con 3 o más adjudicadas de riesgo alto y una tasa de al menos 3 veces la nacional (10), oferente con 3 o más ganadas de riesgo alto que sean al menos 10 % de sus ganadas (10). Oferta muy baja: total bajo 30 % de la mediana de las demás del mismo alcance; no suma puntos, se muestra aparte: puede anticipar incumplimiento o ser un error.</dd>
         <dt>Licitaciones maduras</dt><dd>Para la pregunta 4 solo cuentan las cerradas hace más de 120 días, para que las que aún pueden adjudicarse no inflen las tasas de fracaso.</dd>
       </dl>
@@ -1224,6 +1225,15 @@ function renderExplorar(X) {
 
 // ---------- compras directas (compras.json, se carga al abrir la pestaña)
 let COMPRAS = null, cargandoCompras = null;
+// Precios unitarios (precios.json): vistas de precios en Compras directas y exceso en Proveedores.
+let PRECIOS = null, cargandoPrecios = null;
+function cargarPrecios() {
+  if (!cargandoPrecios) cargandoPrecios = fetch("precios.json")
+    .then((r) => { if (!r.ok) throw new Error("precios.json: HTTP " + r.status); return r.json(); })
+    .then((d) => { PRECIOS = d; render(); })
+    .catch((e) => { cargandoPrecios = null; PRECIOS = { error: e.message, exceso_proveedor: {} }; render(); });
+  return cargandoPrecios;
+}
 const OC_LINK = (c) => "http://www.mercadopublico.cl/PurchaseOrder/Modules/PO/DetailsPurchaseOrder.aspx?codigoOC=" + encodeURIComponent(c);
 function cargarCompras() {
   if (!cargandoCompras) cargandoCompras = fetch("compras.json")
@@ -1353,6 +1363,71 @@ function renderCompras() {
     ], filas, "c-tdalto", { k: "m", dir: "desc" });
     $("c-nota").textContent = `${num(r.total)} tratos directos sobre ${num(K.TD_ALTO_UTM)} UTM. Revisa que la causal (proveedor único, emergencia…) calce con lo comprado.`;
   }
+  if (vista === "psobre" || vista === "pmismo" || vista === "popaca") {
+    if (!PRECIOS) { cargarPrecios(); $("c-nota").textContent = "Cargando precios unitarios…"; $("t-compras").innerHTML = ""; return; }
+    if (PRECIOS.error) { $("c-nota").innerHTML = `<span class="aviso">No se pudieron cargar los precios (${esc(PRECIOS.error)}).</span>`; $("t-compras").innerHTML = ""; return; }
+    const P = PRECIOS, KP = P.constantes;
+    const pasaO = filtroCompras(true);
+    const pn = (c) => ((P.proveedores[c] || [])[0] || pnC(c));
+    const ph = (c) => { const i = COMPRAS.provIdx.get(c); return i != null ? `<a href="#" data-prov="${i}">${esc(recorta(pn(c), 40))}</a>` : esc(recorta(pn(c), 40)); };
+    const esP = (c) => {
+      if (!qg) return true;
+      const [n, r] = P.proveedores[c] || C.proveedores[c] || ["", ""];
+      return normal(n || "").includes(qg) || (qr.length >= 4 && (r || "").replace(/[.\s-]/g, "").toLowerCase().includes(qr));
+    };
+    const ocLink = (c) => `<a href="${OC_LINK(c)}" target="_blank" rel="noopener">${esc(c)}</a>`;
+    const ix = (campos) => new Map(campos.map((c, k) => [c, k]));
+    if (vista === "psobre") {
+      const I = ix(P.campos_sobre), g = (x, c) => x[I.get(c)];
+      const filas = P.sobre_mediana.filter((x) => pasaO({ org: g(x, "org") }) && esP(g(x, "prov")) && (!q || normal(`${g(x, "producto")} ${orgC(g(x, "org"))} ${pn(g(x, "prov"))} ${g(x, "oc")}`).includes(q)));
+      r = tablaOrdenable("t-compras", [
+        { k: "oc", t: "Orden de compra", v: (x) => ocLink(g(x, "oc")), html: 1, s: (x) => g(x, "oc") },
+        { k: "ti", t: "Tipo", v: (x) => (g(x, "tipo") === "AG" ? "Compra Ágil" : "Trato directo"), s: (x) => g(x, "tipo") },
+        { k: "f", t: "Fecha", v: (x) => g(x, "fecha"), s: (x) => g(x, "fecha") },
+        { k: "o", t: "Organismo", v: (x) => orgC(g(x, "org")), s: (x) => orgC(g(x, "org")) },
+        { k: "p", t: "Proveedor", v: (x) => ph(g(x, "prov")), html: 1, s: (x) => pn(g(x, "prov")) },
+        { k: "pr", t: "Producto", v: (x) => `${g(x, "producto")} · ${g(x, "unidad").toLowerCase()}`, s: (x) => g(x, "producto") },
+        { k: "q", t: "Cantidad", v: (x) => num(g(x, "cantidad")), n: 1, s: (x) => g(x, "cantidad") },
+        { k: "pu", t: "Precio unitario", v: (x) => clp(g(x, "precio")), n: 1, s: (x) => g(x, "precio") },
+        { k: "me", t: "Mediana", v: (x) => clp(g(x, "mediana")), n: 1, s: (x) => g(x, "mediana"), h: "Mediana del mismo producto en todas las órdenes de compra del año (licitación, convenio marco y compras directas)" },
+        { k: "rz", t: "Veces la mediana", v: (x) => num(g(x, "razon"), 1), n: 1, s: (x) => g(x, "razon") },
+        { k: "nr", t: "Compras de referencia", v: (x) => num(g(x, "n_ref")), n: 1, s: (x) => g(x, "n_ref") },
+        { k: "ex", t: "Exceso", v: (x) => clp(g(x, "exceso")), n: 1, s: (x) => g(x, "exceso"), h: "(precio − mediana) × cantidad" },
+      ], filas, "c-psobre", { k: "ex", dir: "desc" });
+      $("c-nota").textContent = `${num(r.total)} compras directas de bienes a ${KP.RAZON_ALTA} o más veces la mediana del mismo producto (mismo código ONU, unidad y primeras ${KP.PALABRAS} palabras de la especificación; ${KP.MIN_LINEAS}+ compras de ${KP.MIN_ORGS}+ organismos) y exceso de $1 millón o más. Revisa la ficha: a veces la diferencia es de presentación o calidad.`;
+    }
+    if (vista === "pmismo") {
+      const I = ix(P.campos_mismo), g = (x, c) => x[I.get(c)];
+      const filas = P.mismo_proveedor.filter((x) => g(x, "orgs").some((o) => pasaO({ org: o })) && esP(g(x, "prov")) && (!q || normal(`${g(x, "producto")} ${pn(g(x, "prov"))} ${g(x, "orgs").map(orgC).join(" ")}`).includes(q)));
+      r = tablaOrdenable("t-compras", [
+        { k: "p", t: "Proveedor", v: (x) => ph(g(x, "prov")), html: 1, s: (x) => pn(g(x, "prov")) },
+        { k: "pr", t: "Producto", v: (x) => `${g(x, "producto")} · ${g(x, "unidad").toLowerCase()}`, s: (x) => g(x, "producto") },
+        { k: "n", t: "Órdenes", v: (x) => num(g(x, "n_oc")), n: 1, s: (x) => g(x, "n_oc") },
+        { k: "mi", t: "Precio mínimo", v: (x) => clp(g(x, "p_min")), n: 1, s: (x) => g(x, "p_min") },
+        { k: "ma", t: "Precio máximo", v: (x) => clp(g(x, "p_max")), n: 1, s: (x) => g(x, "p_max") },
+        { k: "rz", t: "Máx. / mín.", v: (x) => num(g(x, "razon"), 1), n: 1, s: (x) => g(x, "razon") },
+        { k: "ex", t: "Pagado sobre el mínimo", v: (x) => clp(g(x, "exceso")), n: 1, s: (x) => g(x, "exceso"), h: "Σ (precio − mínimo) × cantidad" },
+        { k: "o", t: "Organismos", v: (x) => recorta(g(x, "orgs").map(orgC).join(", "), 60), s: (x) => g(x, "orgs").length },
+      ], filas, "c-pmismo", { k: "ex", dir: "desc" }, (x) => detalleCompras("Mismo proveedor, precios distintos", `${pn(g(x, "prov"))} · ${g(x, "producto")}`, `${num(g(x, "n_oc"))} órdenes entre ${clp(g(x, "p_min"))} y ${clp(g(x, "p_max"))} por ${g(x, "unidad").toLowerCase()}; ${clp(g(x, "exceso"))} pagados sobre el precio mínimo. Primero las órdenes más caras.`, g(x, "ocs")));
+      $("c-nota").textContent = `${num(r.total)} productos que el mismo proveedor vendió por compra directa a precios que difieren ${KP.RAZON_PROVEEDOR} o más veces en el año. Puede ser alza de precios, otra presentación o urgencia; si no, es la pregunta a hacer. Clic en una fila para ver las órdenes.`;
+    }
+    if (vista === "popaca") {
+      const I = ix(P.campos_opacas), g = (x, c) => x[I.get(c)];
+      const filas = P.sin_precio_unitario.filter((x) => pasaO({ org: g(x, "org") }) && esP(g(x, "prov")) && (!q || normal(`${g(x, "producto")} ${orgC(g(x, "org"))} ${pn(g(x, "prov"))} ${g(x, "oc")}`).includes(q)));
+      r = tablaOrdenable("t-compras", [
+        { k: "oc", t: "Orden de compra", v: (x) => ocLink(g(x, "oc")), html: 1, s: (x) => g(x, "oc") },
+        { k: "ti", t: "Tipo", v: (x) => (g(x, "tipo") === "AG" ? "Compra Ágil" : "Trato directo"), s: (x) => g(x, "tipo") },
+        { k: "f", t: "Fecha", v: (x) => g(x, "fecha"), s: (x) => g(x, "fecha") },
+        { k: "o", t: "Organismo", v: (x) => orgC(g(x, "org")), s: (x) => orgC(g(x, "org")) },
+        { k: "p", t: "Proveedor", v: (x) => ph(g(x, "prov")), html: 1, s: (x) => pn(g(x, "prov")) },
+        { k: "m", t: "Monto", v: (x) => clp(g(x, "monto")), n: 1, s: (x) => g(x, "monto") },
+        { k: "pr", t: "Producto", v: (x) => recorta(g(x, "producto") || "—", 70), s: (x) => g(x, "producto") || "" },
+      ], filas, "c-popaca", { k: "m", dir: "desc" });
+      $("c-nota").textContent = `${num(r.total)} compras directas sobre ${num(KP.OPACA_UTM)} UTM sin precio unitario verificable: todas sus líneas son «1 unidad no definida» o «global», o una línea de cantidad 1 vale ${KP.RAZON_LINEA_OPACA}+ veces la mediana del producto (un contrato completo cargado como un ítem). Sin cantidad y precio unitario no se puede comparar con otras compras.`;
+    }
+    $("t-compras").querySelectorAll("a[data-prov]").forEach((el) => el.addEventListener("click", (e) => { e.preventDefault(); e.stopPropagation(); mostrar("alertas"); abrirFicha(Number(el.dataset.prov)); }));
+    return;
+  }
   if (vista === "orgs") {
     const nac = C.organismos.reduce((a, o) => [a[0] + o[3], a[1] + o[5]], [0, 0]);
     const tasa = nac[0] ? nac[1] / nac[0] : 0;
@@ -1394,7 +1469,8 @@ function cargarProvOC() {
 function renderProveedores(X) {
   if (!PROVOC) { $("pr-nota").textContent = "Cargando compras directas por proveedor…"; cargarProvOC(); return; }
   if (!COMPRAS) cargarCompras();
-  if (!X.score) X.score = Metricas.proveedoresScore(D, X.mk, PARES, CAT, PROVOC.error ? null : PROVOC);
+  if (!PRECIOS) { $("pr-nota").textContent = "Cargando precios unitarios…"; cargarPrecios(); return; }
+  if (!X.score) X.score = Metricas.proveedoresScore(D, X.mk, PARES, CAT, PROVOC.error ? null : PROVOC, PRECIOS.error ? null : PRECIOS.exceso_proveedor);
   const meses = COMPRAS ? Object.keys(COMPRAS.fuentes) : [];
   $("pr-fresco").innerHTML = (PROVOC.error ? `<span class="aviso">Sin compras directas (${esc(PROVOC.error)}).</span> ` : "") +
     `Licitaciones: ${MESES[estado.f.desde]} a ${MESES[estado.f.hasta]} con los filtros de arriba. Compras Ágiles y tratos directos: ${meses.length ? `${meses[0]} a ${meses[meses.length - 1]}` : "últimos 12 meses"}, sin filtros. Montos en pesos.`;
@@ -1428,11 +1504,13 @@ function renderProveedores(X) {
     { k: "un", t: "Sin competencia", v: (f) => p0(f.unico), n: 1, s: (f) => f.unico, h: "Parte de su monto en licitaciones donde fue el único oferente" },
     { k: "sb", t: "Sobre la más barata", v: (f) => (f.barata == null ? "—" : pct(f.barata)), n: 1, s: (f) => f.barata, h: "Parte del monto adjudicado pagada sobre la oferta aceptada más barata, ponderada por monto" },
     { k: "se", t: "Sobre lo estimado", v: (f) => (f.estimado == null ? "—" : pct(f.estimado)), n: 1, s: (f) => f.estimado, h: "Parte del monto adjudicado que excede el monto estimado de cada licitación" },
+    { k: "sm", t: "Monto sobre lo estimado", v: (f) => (f.sobre_est_monto ? clp(f.sobre_est_monto) : "—"), n: 1, s: (f) => f.sobre_est_monto || 0, h: "Suma de lo adjudicado por sobre el monto estimado en cada licitación que ganó (su parte), en pesos" },
     { k: "an", t: "Compras Ágiles", v: (f) => (f.ag_n ? `${num(f.ag_n)} · ${clp(f.ag_monto)}` : "—"), n: 1, s: (f) => f.ag_monto },
     { k: "fr", t: "En fraccionamiento", v: (f) => p0(f.fracc_pct), n: 1, s: (f) => f.fracc_pct },
     { k: "bt", t: "Bajo el tope", v: (f) => p0(f.banda_pct), n: 1, s: (f) => (f.ag_n >= 10 ? f.banda_pct : null), h: "Compras Ágiles entre 90 % y 100 % del tope (nacional ~3 %)" },
     { k: "tn", t: "Tratos directos", v: (f) => (f.td_n ? `${num(f.td_n)} · ${clp(f.td_monto)}` : "—"), n: 1, s: (f) => f.td_monto },
     { k: "tp", t: "% por trato directo", v: (f) => p0(f.td_pct), n: 1, s: (f) => f.td_pct },
+    { k: "xp", t: "Exceso de precio (compras directas)", v: (f) => (f.exceso_precio ? `${clp(f.exceso_precio)} · ${num(f.exceso_lineas)}` : "—"), n: 1, s: (f) => f.exceso_precio, h: "Σ (precio − mediana del mismo producto) × cantidad en sus compras directas a 3+ veces la mediana; y cuántas líneas" },
     { k: "em", t: "TD por emergencia", v: (f) => (f.td_n ? num(f.td_emergencia) : "—"), n: 1, s: (f) => f.td_emergencia || 0 },
     { k: "ca", t: "Captura", v: (f) => p0(f.captura), n: 1, s: (f) => f.captura, h: "Parte del gasto en licitaciones de su organismo principal que se lleva" },
     { k: "ac", t: "Acompañantes", v: (f) => num(f.acomp), n: 1, s: (f) => f.acomp },
@@ -1456,6 +1534,8 @@ function renderDetalleProveedor() {
     ["Licitaciones ganadas", num(f.lic_n), clp(f.lic_monto)],
     ["Compras Ágiles", num(f.ag_n), clp(f.ag_monto)],
     ["Tratos directos", num(f.td_n), clp(f.td_monto)],
+    ["Monto sobre lo estimado", f.sobre_est_monto ? clp(f.sobre_est_monto) : "—", "en licitaciones ganadas"],
+    ["Exceso de precio", f.exceso_precio ? clp(f.exceso_precio) : "—", f.exceso_lineas ? `${num(f.exceso_lineas)} líneas a 3+ veces la mediana` : "compras directas"],
   ]);
   const filas = Metricas.SCORE.map(([k, w, d]) => ({ k, w, d, x: f.comp[k] }));
   tabla("prd-comp", [
