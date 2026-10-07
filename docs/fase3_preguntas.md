@@ -135,6 +135,39 @@ canceladas.
   (proveedor único, emergencia) calce con lo comprado. La causal más usada es «emergencia,
   urgencia o imprevisto» (33.585 órdenes).
 
+## Pestaña «Proveedores»: puntaje por proveedor
+
+Une, por `CodigoProveedor`, las licitaciones ganadas (con los filtros de la página) y las
+Compras Ágiles y tratos directos de los últimos 12 meses (`proveedores_oc.json`, de
+`observatorio compras`): 80.514 proveedores, 24.114 con 3+ licitaciones o 10+ órdenes.
+Métricas: monto total y por vía, tasa de éxito, parte del monto sin competencia, parte del
+monto pagada **sobre la oferta aceptada más barata** y parte que **excede lo estimado**
+(ambas ponderadas por monto), Compras Ágiles en fraccionamiento y bajo el tope, parte por
+trato directo y por emergencia, captura y acompañantes.
+
+**Puntaje (0–100)** (`proveedoresScore` en `dashboard/web/metricas.js`): suma de diez
+componentes 0–1 con pesos fijos que suman 100; sin datos, el componente aporta 0.
+
+| componente | peso | lleno cuando |
+|---|---|---|
+| riesgo medio de sus licitaciones (ponderado por monto) | 15 | puntaje medio ≥ 50 |
+| monto pagado sobre la oferta más barata | 15 | ≥ 30 % del monto |
+| monto que excede lo estimado | 10 | ≥ 20 % del monto |
+| monto sin competencia (oferente único) | 10 | 100 % |
+| captura del organismo principal | 10 | 100 % de su gasto |
+| acompañantes | 5 | tiene alguno |
+| parte recibida por trato directo × monto | 15 | 100 % y ≥ 1.000 UTM en tratos directos |
+| tratos directos por emergencia × monto | 5 | 100 % y ≥ 1.000 UTM |
+| Compras Ágiles en fraccionamiento (desde 5) | 10 | 100 % |
+| Compras Ágiles entre 90 % y 100 % del tope (desde 10) | 5 | ≥ 15 % (nacional ~3 %) |
+
+Dos decisiones de calibración: (1) la primera versión promediaba solo los componentes con
+datos, y cualquier persona con diez tratos directos chicos (honorarios, talleres) quedaba en
+100; por eso pesos fijos y tratos directos escalados por monto. (2) «Sobre lo estimado» como
+razón sin acotar lo dominaban estimados mal digitados (razones de 20 o más); se usa la parte
+del monto que excede lo estimado, entre 0 y 1. Con datos al 6 de octubre de 2026: mediana 7,
+p99 32, máximo 51. El puntaje ordena dónde revisar primero; no prueba nada.
+
 ## Licitaciones en curso (pestaña «En curso» de la versión web)
 
 Las señales anteriores se calculan cuando la licitación ya está adjudicada: sirven para

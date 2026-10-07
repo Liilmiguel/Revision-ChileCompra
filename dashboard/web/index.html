@@ -182,6 +182,7 @@ footer { margin-top: 32px; font-size: 12.5px; color: var(--muted); }
     <button role="tab" data-tab="vivo">En curso</button>
     <button role="tab" data-tab="explorar">Explorar</button>
     <button role="tab" data-tab="compras">Compras directas</button>
+    <button role="tab" data-tab="proveedores">Proveedores</button>
     <button role="tab" data-tab="metodologia">Metodología</button>
   </nav>
 
@@ -406,6 +407,8 @@ footer { margin-top: 32px; font-size: 12.5px; color: var(--muted); }
           </div></div>
         <div class="campo" style="flex:1 1 220px"><label for="c-buscar">Buscar</label>
           <input type="search" id="c-buscar" placeholder="Organismo, proveedor, rubro o código" autocomplete="off" style="width:100%"></div>
+        <div class="campo" style="flex:1 1 200px"><label for="c-ganador">Proveedor (nombre o RUT)</label>
+          <input type="search" id="c-ganador" placeholder="p. ej. Scienza o 77.634.874-0" autocomplete="off" style="width:100%"></div>
       </div>
       <p class="nota" id="c-nota"></p>
       <div class="tabla" id="t-compras" style="max-height:600px"></div>
@@ -416,6 +419,35 @@ footer { margin-top: 32px; font-size: 12.5px; color: var(--muted); }
         <button class="btn" id="cd-cerrar" type="button">Cerrar</button>
       </div>
       <div id="cd-codigos"></div>
+    </div>
+  </section>
+
+  <!-- PROVEEDORES -->
+  <section class="panel" id="p-proveedores" role="tabpanel" hidden>
+    <h2>Proveedores</h2>
+    <p class="sub">Todo lo que cada proveedor recibe del Estado: licitaciones ganadas (con los filtros de arriba) más Compras Ágiles y tratos directos de los últimos 12 meses. El <b>puntaje</b> (0 a 100) suma diez componentes con pesos fijos: sobreprecio, falta de competencia, dependencia de un organismo y compras sin licitación; un componente sin datos no suma. Es una forma de ordenar dónde mirar primero, no una acusación.</p>
+    <p class="nota" id="pr-fresco"></p>
+    <div class="kpis" id="k-proveedores"></div>
+    <div class="card">
+      <div class="controles">
+        <div class="campo" style="flex:1 1 240px"><label for="pr-buscar">Proveedor (nombre o RUT)</label>
+          <input type="search" id="pr-buscar" placeholder="p. ej. Scienza o 77.634.874-0" autocomplete="off" style="width:100%"></div>
+        <div class="campo"><label for="pr-min">Volumen mínimo</label>
+          <select id="pr-min"><option value="1">Cualquiera</option><option value="3" selected>3+ licitaciones o 10+ órdenes</option><option value="10">10+ licitaciones o 50+ órdenes</option></select></div>
+        <div class="campo"><label for="pr-tipo">Recibe</label>
+          <select id="pr-tipo"><option value="">Licitaciones o compras directas</option><option value="lic">Licitaciones</option><option value="oc">Compras directas</option><option value="ambas">Ambas</option></select></div>
+      </div>
+      <p class="nota" id="pr-nota"></p>
+      <div class="tabla" id="t-proveedores" style="max-height:640px"></div>
+    </div>
+    <div class="card ficha" id="pr-detalle" hidden>
+      <div style="display:flex;justify-content:space-between;gap:12px;align-items:start;flex-wrap:wrap">
+        <div><span class="eyebrow">Puntaje del proveedor</span><h2 id="prd-nombre"></h2><p class="nota" id="prd-sub"></p></div>
+        <button class="btn" id="prd-cerrar" type="button">Cerrar</button>
+      </div>
+      <div class="kpis" id="prd-kpis"></div>
+      <h3>Componentes del puntaje</h3>
+      <div class="tabla" id="prd-comp" style="max-height:none"></div>
     </div>
   </section>
 
@@ -435,6 +467,7 @@ footer { margin-top: 32px; font-size: 12.5px; color: var(--muted); }
         <dt>Rubro</dt><dd>Clasificación de los productos de cada línea (niveles 1 y 2 de ChileCompra, basada en UNSPSC). Una licitación con líneas de varios rubros aparece en cada uno; «rubro principal» es el de más líneas. Se omiten rubros con menos de 30 licitaciones (casi siempre valores dañados en origen).</dd>
         <dt>Señales complementarias</dt><dd>No suman al puntaje. <b>Ofertas idénticas</b>: dos o más proveedores ofertan exactamente el mismo total, desde $100.000 y no múltiplo de $1.000 (con montos redondos las coincidencias son comunes); patrón de ofertas coordinadas, aunque también aparece con precios regulados. <b>Fraccionamiento</b>: compra L1 o E2 (bajo 100 UTM) adjudicada a un proveedor que en ±30 días ganó otras 2 o más del mismo organismo y rubro, sumando más de 100 UTM. Se probó y descartó «estimado justo bajo el tope del tipo»: los estimados se acumulan en montos redondos, no pegados al tope.</dd>
         <dt>Compras directas</dt><dd>Órdenes de compra de los últimos 12 meses completos (descarga masiva de órdenes de compra): Compras Ágiles (hasta 100 UTM con impuestos) y tratos directos. El tope de cada mes se mide en los datos (percentil 99,95 de los montos). <b>Fraccionamiento</b>: 3 o más Compras Ágiles del mismo organismo al mismo proveedor y rubro en 30 días que juntas superan el tope; en hospitales suele reflejar compras recurrentes de insumos que debieron ir por licitación de suministro o convenio. <b>Bajo el tope</b>: entre 90 % y 100 % del tope; se compara la proporción de cada organismo con la nacional. <b>Trato directo recurrente</b>: 5 o más del mismo organismo al mismo proveedor. <b>Monto alto</b>: sobre 1.000 UTM.</dd>
+        <dt>Puntaje de proveedores</dt><dd>Suma de diez componentes entre 0 y 1 con pesos fijos que suman 100; un componente sin datos aporta 0: riesgo medio de sus licitaciones ponderado por monto (15), parte del monto pagada sobre la oferta aceptada más barata (15), parte del monto que excede lo estimado (10), monto en licitaciones sin competencia (10), captura de su organismo principal (10), acompañantes (5), parte de lo recibido por trato directo (15) y parte de sus tratos directos por emergencia (5), ambos escalados por monto hasta 1.000 UTM, Compras Ágiles en fraccionamiento (10) y Compras Ágiles justo bajo el tope (5). Se descartó renormalizar por los componentes con datos: cualquier persona con diez tratos directos chicos (honorarios) quedaba en 100. Las licitaciones siguen los filtros; las compras directas son de los últimos 12 meses. Un puntaje alto indica dónde revisar primero, no una irregularidad.</dd>
         <dt>En curso</dt><dd>Abiertas: listado de licitaciones publicadas de la API de ChileCompra y el detalle de cada una. En evaluación: cerradas sin adjudicar de los últimos cuatro meses de la descarga masiva, con sus ofertas. Señales (puntos): oferente único (25), oferta junto a un acompañante habitual (20), todas las ofertas más de 20 % sobre lo estimado (15), estimado más de 1,5 veces el tope del tramo de su tipo (15), plazo en el 10 % más corto de su tipo (10), organismo con 3 o más adjudicadas de riesgo alto y una tasa de al menos 3 veces la nacional (10), oferente con 3 o más ganadas de riesgo alto que sean al menos 10 % de sus ganadas (10). Oferta muy baja: total bajo 30 % de la mediana de las demás del mismo alcance; no suma puntos, se muestra aparte: puede anticipar incumplimiento o ser un error.</dd>
         <dt>Licitaciones maduras</dt><dd>Para la pregunta 4 solo cuentan las cerradas hace más de 120 días, para que las que aún pueden adjudicarse no inflen las tasas de fracaso.</dd>
       </dl>
@@ -444,7 +477,7 @@ footer { margin-top: 32px; font-size: 12.5px; color: var(--muted); }
         <li>En los convenios de suministro el monto adjudicado es un precio unitario y subestima el contrato.</li>
         <li>Hay errores de captura que ninguna regla detecta; revisa la ficha antes de citar un monto puntual.</li>
         <li>El archivo de marzo de 2026 viene dañado en origen (0,5 % de sus registros descartados).</li>
-        <li>Solo licitaciones: no incluye órdenes de compra, convenio marco ni trato directo.</li>
+        <li>Compras directas: solo los últimos 12 meses de Compras Ágiles y tratos directos; no incluye convenio marco.</li>
       </ul>
     </div>
   </section>
@@ -473,14 +506,14 @@ const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<
 const $ = (id) => document.getElementById(id);
 
 let D = null, CAT = null, META = null, MESES = [], PARES = [], CODIGOS = null, NOMBRES = null;
-const estado = { tab: "resumen", dim: "tipo", f: null, rmask: null, cvista: "fracc", vista: "lic", req: 0, orden: {}, prov: null, etapa: "eval", vreq: new Set(), vlic: null, xreq: new Set() };
+const estado = { tab: "resumen", dim: "tipo", f: null, rmask: null, cvista: "fracc", pr: null, vista: "lic", req: 0, orden: {}, prov: null, etapa: "eval", vreq: new Set(), vlic: null, xreq: new Set() };
 const ESTADOS_TXT = ["Adjudicada", "Desierta", "Revocada", "Cerrada", "Suspendida", "Publicada"];
 const FICHA = (codigo) => "http://www.mercadopublico.cl/fichaLicitacion.html?idLicitacion=" + encodeURIComponent(codigo);
 // Etiquetas cortas de las señales, en el orden de meta.SENALES (bits 0–5).
 const CORTO = ["oferente único", "descalificada", "sobre más barata", "sobre estimado", "plazo corto", "precio ref."];
 
 // ---------- pestañas (con #ancla)
-const TABS = ["resumen", "competencia", "precio", "concentracion", "proceso", "alertas", "vivo", "explorar", "compras", "metodologia"];
+const TABS = ["resumen", "competencia", "precio", "concentracion", "proceso", "alertas", "vivo", "explorar", "compras", "proveedores", "metodologia"];
 function mostrar(tab) {
   if (!TABS.includes(tab)) tab = "resumen";
   estado.tab = tab;
@@ -722,6 +755,7 @@ function render() {
   if (tab === "vivo") renderVivo();
   if (tab === "explorar") renderExplorar(X);
   if (tab === "compras") renderCompras();
+  if (tab === "proveedores") renderProveedores(X);
 }
 
 // ---------- señales de alerta
@@ -1215,8 +1249,9 @@ function filtroCompras(sinRubro = false) {
     return (org == null || x.org === org) && (region == null || (o && o[2] && normal(o[2]) === region)) && (rubro == null || (x.rubro && normal(x.rubro) === rubro));
   };
 }
+const pnC = (c) => (COMPRAS.proveedores[c] || [c])[0] || c;
 function provHtml(c) {
-  const n = COMPRAS.proveedores[c] || c;
+  const n = pnC(c);
   const i = COMPRAS.provIdx.get(c);
   return i != null ? `<a href="#" data-prov="${i}">${esc(recorta(n, 40))}</a>` : esc(recorta(n, 40));
 }
@@ -1232,10 +1267,32 @@ function renderCompras() {
   const pasaOrg = filtroCompras(true);
   const orgsF = C.organismos.filter((o) => pasaOrg({ org: o[0] }));
   const tot = orgsF.reduce((a, o) => { a.agn += o[3]; a.agm += o[4]; a.band += o[5]; a.tdn += o[6]; a.tdm += o[7]; a.fr += o[8]; return a; }, { agn: 0, agm: 0, band: 0, tdn: 0, tdm: 0, fr: 0 });
-  const fr = C.fraccionamiento.filter(pasa), rec = C.td_recurrente.filter(pasa), alto = C.td_alto.filter(pasa);
+  // Proveedor: nombre o RUT (con o sin puntos y guion).
+  const qg = normal($("c-ganador").value.trim()), qr = qg.replace(/[.\s-]/g, "");
+  const esProv = (x) => {
+    if (!qg) return true;
+    const [n, r] = C.proveedores[x.prov] || ["", ""];
+    return normal(n || "").includes(qg) || (qr.length >= 4 && (r || "").replace(/[.\s-]/g, "").toLowerCase().includes(qr));
+  };
+  const pasaP = (x) => pasa(x) && esProv(x);
+  const fr = C.fraccionamiento.filter(pasaP), rec = C.td_recurrente.filter(pasaP), alto = C.td_alto.filter(pasaP);
+  // Con filtro de proveedor, los totales salen de proveedores_oc.json (todos sus organismos).
+  if (qg) {
+    if (!PROVOC) cargarProvOC();
+    else if (!PROVOC.error) {
+      const ix = new Map(PROVOC.campos.map((c, k) => [c, k]));
+      Object.assign(tot, { agn: 0, agm: 0, tdn: 0, tdm: 0 });
+      for (const row of PROVOC.filas) {
+        const n = normal(row[ix.get("nombre")] || ""), r = (row[ix.get("rut")] || "").replace(/[.\s-]/g, "").toLowerCase();
+        if (!(n.includes(qg) || (qr.length >= 4 && r.includes(qr)))) continue;
+        tot.agn += row[ix.get("ag_n")]; tot.agm += row[ix.get("ag_monto")]; tot.tdn += row[ix.get("td_n")]; tot.tdm += row[ix.get("td_monto")];
+      }
+    }
+  }
+  const deQuien = qg ? (PROVOC && !PROVOC.error ? " · del proveedor" : " · del país (cargando proveedor…)") : "";
   kpis("k-compras", [
-    ["Compras Ágiles", num(tot.agn), clp(tot.agm)],
-    ["Tratos directos", num(tot.tdn), clp(tot.tdm)],
+    ["Compras Ágiles", num(tot.agn), clp(tot.agm) + deQuien],
+    ["Tratos directos", num(tot.tdn), clp(tot.tdm) + deQuien],
     ["Episodios de fraccionamiento", num(fr.length), clp(fr.reduce((a, e) => a + e.monto, 0)) + " en total"],
     ["Tratos directos recurrentes", num(rec.length), `pares organismo–proveedor con ${K.TD_RECURRENTE}+`],
   ]);
@@ -1254,33 +1311,33 @@ function renderCompras() {
 
   const vista = estado.cvista;
   const q = normal($("c-buscar").value.trim());
-  const busca = (x, extra = "") => !q || normal(`${orgC(x.org)} ${C.proveedores[x.prov] || ""} ${x.rubro || ""} ${extra}`).includes(q);
+  const busca = (x, extra = "") => !q || normal(`${orgC(x.org)} ${pnC(x.prov)} ${x.rubro || ""} ${extra}`).includes(q);
   const cap = (t) => (t ? t.charAt(0).toUpperCase() + t.slice(1).toLowerCase() : "—");
   let r;
   if (vista === "fracc") {
     const filas = fr.filter((e) => busca(e, e.codigos.join(" ")));
     r = tablaOrdenable("t-compras", [
       { k: "o", t: "Organismo", v: (e) => orgC(e.org), s: (e) => orgC(e.org) },
-      { k: "p", t: "Proveedor", v: (e) => provHtml(e.prov), html: 1, s: (e) => C.proveedores[e.prov] || "" },
+      { k: "p", t: "Proveedor", v: (e) => provHtml(e.prov), html: 1, s: (e) => pnC(e.prov) },
       { k: "r", t: "Rubro", v: (e) => recorta(cap(e.rubro), 40), s: (e) => e.rubro || "" },
       { k: "d", t: "Periodo", v: (e) => `${e.desde} a ${e.hasta}`, s: (e) => e.desde },
       { k: "n", t: "Compras Ágiles", v: (e) => num(e.n), n: 1, s: (e) => e.n },
       { k: "m", t: "Monto total", v: (e) => clp(e.monto), n: 1, s: (e) => e.monto },
       { k: "x", t: "Veces el tope", v: (e) => num(e.monto / (C.topes[e.desde.slice(0, 7)] || 7.2e6), 1), n: 1, s: (e) => e.monto / (C.topes[e.desde.slice(0, 7)] || 7.2e6) },
-    ], filas, "c-fracc", { k: "m", dir: "desc" }, (e) => detalleCompras("Fraccionamiento", `${orgC(e.org)} → ${C.proveedores[e.prov] || e.prov}`, `${num(e.n)} Compras Ágiles entre ${e.desde} y ${e.hasta}, ${clp(e.monto)} en total · rubro ${cap(e.rubro)}`, e.codigos));
+    ], filas, "c-fracc", { k: "m", dir: "desc" }, (e) => detalleCompras("Fraccionamiento", `${orgC(e.org)} → ${pnC(e.prov)}`, `${num(e.n)} Compras Ágiles entre ${e.desde} y ${e.hasta}, ${clp(e.monto)} en total · rubro ${cap(e.rubro)}`, e.codigos));
     $("c-nota").textContent = `${num(r.total)} episodios: ${K.FRACC_MIN} o más Compras Ágiles del mismo organismo al mismo proveedor y rubro en ${K.FRACC_DIAS} días que juntas superan el tope. Clic en una fila para ver las órdenes.`;
   }
   if (vista === "tdrec") {
     const filas = rec.filter((e) => busca(e, e.causal || ""));
     r = tablaOrdenable("t-compras", [
       { k: "o", t: "Organismo", v: (e) => orgC(e.org), s: (e) => orgC(e.org) },
-      { k: "p", t: "Proveedor", v: (e) => provHtml(e.prov), html: 1, s: (e) => C.proveedores[e.prov] || "" },
+      { k: "p", t: "Proveedor", v: (e) => provHtml(e.prov), html: 1, s: (e) => pnC(e.prov) },
       { k: "n", t: "Tratos directos", v: (e) => num(e.n), n: 1, s: (e) => e.n },
       { k: "m", t: "Monto", v: (e) => clp(e.monto), n: 1, s: (e) => e.monto },
       { k: "c", t: "Causal más usada", v: (e) => recorta(e.causal || "—", 60), s: (e) => e.causal || "" },
       { k: "r", t: "Rubro", v: (e) => recorta(cap(e.rubro), 34), s: (e) => e.rubro || "" },
       { k: "d", t: "Periodo", v: (e) => `${e.desde} a ${e.hasta}`, s: (e) => e.desde },
-    ], filas, "c-tdrec", { k: "m", dir: "desc" }, (e) => detalleCompras("Trato directo recurrente", `${orgC(e.org)} → ${C.proveedores[e.prov] || e.prov}`, `${num(e.n)} tratos directos, ${clp(e.monto)} · causal más usada: ${e.causal || "—"}`, e.codigos));
+    ], filas, "c-tdrec", { k: "m", dir: "desc" }, (e) => detalleCompras("Trato directo recurrente", `${orgC(e.org)} → ${pnC(e.prov)}`, `${num(e.n)} tratos directos, ${clp(e.monto)} · causal más usada: ${e.causal || "—"}`, e.codigos));
     $("c-nota").textContent = `${num(r.total)} pares organismo–proveedor con ${K.TD_RECURRENTE} o más tratos directos en el periodo. Pueden ser servicios legítimamente continuos; la pregunta es por qué no se licitaron. Clic en una fila para ver las órdenes.`;
   }
   if (vista === "tdalto") {
@@ -1289,7 +1346,7 @@ function renderCompras() {
       { k: "c", t: "Orden de compra", v: (e) => `<a href="${OC_LINK(e.codigo)}" target="_blank" rel="noopener">${esc(e.codigo)}</a>`, html: 1, s: (e) => e.codigo },
       { k: "f", t: "Fecha", v: (e) => e.fecha, s: (e) => e.fecha },
       { k: "o", t: "Organismo", v: (e) => orgC(e.org), s: (e) => orgC(e.org) },
-      { k: "p", t: "Proveedor", v: (e) => provHtml(e.prov), html: 1, s: (e) => C.proveedores[e.prov] || "" },
+      { k: "p", t: "Proveedor", v: (e) => provHtml(e.prov), html: 1, s: (e) => pnC(e.prov) },
       { k: "m", t: "Monto", v: (e) => clp(e.monto), n: 1, s: (e) => e.monto },
       { k: "ca", t: "Causal", v: (e) => recorta(e.causal || "—", 60), s: (e) => e.causal || "" },
       { k: "n", t: "Descripción", v: (e) => recorta(e.nombre || "", 70), s: (e) => e.nombre || "" },
@@ -1323,6 +1380,93 @@ function detalleCompras(tipo, titulo, sub, codigos) {
   $("cd-codigos").innerHTML = `<div class="pares">${codigos.map((c) => `<a class="marca" href="${OC_LINK(c)}" target="_blank" rel="noopener">${esc(c)}</a>`).join("")}</div>`;
   $("c-detalle").hidden = false;
   $("c-detalle").scrollIntoView({ behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth", block: "start" });
+}
+
+// ---------- proveedores (licitaciones + compras directas)
+let PROVOC = null, cargandoProvOC = null;
+function cargarProvOC() {
+  if (!cargandoProvOC) cargandoProvOC = fetch("proveedores_oc.json")
+    .then((r) => { if (!r.ok) throw new Error("proveedores_oc.json: HTTP " + r.status); return r.json(); })
+    .then((d) => { PROVOC = d; render(); })
+    .catch((e) => { cargandoProvOC = null; PROVOC = { campos: [], filas: [], error: e.message }; render(); });
+  return cargandoProvOC;
+}
+function renderProveedores(X) {
+  if (!PROVOC) { $("pr-nota").textContent = "Cargando compras directas por proveedor…"; cargarProvOC(); return; }
+  if (!COMPRAS) cargarCompras();
+  if (!X.score) X.score = Metricas.proveedoresScore(D, X.mk, PARES, CAT, PROVOC.error ? null : PROVOC);
+  const meses = COMPRAS ? Object.keys(COMPRAS.fuentes) : [];
+  $("pr-fresco").innerHTML = (PROVOC.error ? `<span class="aviso">Sin compras directas (${esc(PROVOC.error)}).</span> ` : "") +
+    `Licitaciones: ${MESES[estado.f.desde]} a ${MESES[estado.f.hasta]} con los filtros de arriba. Compras Ágiles y tratos directos: ${meses.length ? `${meses[0]} a ${meses[meses.length - 1]}` : "últimos 12 meses"}, sin filtros. Montos en pesos.`;
+  const minV = Number($("pr-min").value), tipoV = $("pr-tipo").value;
+  const q = normal($("pr-buscar").value.trim()), qr = q.replace(/[.\s-]/g, "");
+  const filas = X.score.filter((f) => {
+    const nOC = f.ag_n + f.td_n;
+    if (minV > 1 && !(f.lic_n >= minV || nOC >= (minV === 3 ? 10 : 50))) return false;
+    if (tipoV === "lic" && !f.lic_n) return false;
+    if (tipoV === "oc" && !nOC) return false;
+    if (tipoV === "ambas" && !(f.lic_n && nOC)) return false;
+    if (q && !normal(f.nombre || "").includes(q) && !(qr.length >= 4 && (f.rut || "").replace(/[.\s-]/g, "").toLowerCase().includes(qr))) return false;
+    return true;
+  });
+  const tot = filas.reduce((a, f) => [a[0] + f.total, a[1] + f.lic_monto, a[2] + f.ag_monto, a[3] + f.td_monto], [0, 0, 0, 0]);
+  kpis("k-proveedores", [
+    ["Proveedores", num(filas.length), "con el volumen y filtros elegidos"],
+    ["Monto total recibido", clp(tot[0])],
+    ["Por licitación", clp(tot[1]), pct(tot[0] ? tot[1] / tot[0] : null)],
+    ["Por Compra Ágil / trato directo", `${clp(tot[2])} / ${clp(tot[3])}`],
+  ]);
+  const p0 = (x) => (x == null ? "—" : pct(x, 0));
+  const r = tablaOrdenable("t-proveedores", [
+    { k: "sc", t: "Puntaje", v: (f) => puntajeHtml(Math.round(f.score)), html: 1, s: (f) => f.score, h: "0 a 100; ver componentes al hacer clic en la fila" },
+    { k: "nm", t: "Proveedor", v: (f) => recorta(f.nombre || f.codigo, 40), s: (f) => f.nombre || "" },
+    { k: "rut", t: "RUT", v: (f) => f.rut || "—", code: 1 },
+    { k: "tt", t: "Monto total", v: (f) => clp(f.total), n: 1, s: (f) => f.total },
+    { k: "ln", t: "Licitaciones ganadas", v: (f) => num(f.lic_n), n: 1, s: (f) => f.lic_n },
+    { k: "lm", t: "Monto licitaciones", v: (f) => clp(f.lic_monto), n: 1, s: (f) => f.lic_monto },
+    { k: "ex", t: "Tasa de éxito", v: (f) => p0(f.exito), n: 1, s: (f) => f.exito, h: "Ganadas / licitaciones en que ofertó en todo el periodo" },
+    { k: "un", t: "Sin competencia", v: (f) => p0(f.unico), n: 1, s: (f) => f.unico, h: "Parte de su monto en licitaciones donde fue el único oferente" },
+    { k: "sb", t: "Sobre la más barata", v: (f) => (f.barata == null ? "—" : pct(f.barata)), n: 1, s: (f) => f.barata, h: "Parte del monto adjudicado pagada sobre la oferta aceptada más barata, ponderada por monto" },
+    { k: "se", t: "Sobre lo estimado", v: (f) => (f.estimado == null ? "—" : pct(f.estimado)), n: 1, s: (f) => f.estimado, h: "Parte del monto adjudicado que excede el monto estimado de cada licitación" },
+    { k: "an", t: "Compras Ágiles", v: (f) => (f.ag_n ? `${num(f.ag_n)} · ${clp(f.ag_monto)}` : "—"), n: 1, s: (f) => f.ag_monto },
+    { k: "fr", t: "En fraccionamiento", v: (f) => p0(f.fracc_pct), n: 1, s: (f) => f.fracc_pct },
+    { k: "bt", t: "Bajo el tope", v: (f) => p0(f.banda_pct), n: 1, s: (f) => (f.ag_n >= 10 ? f.banda_pct : null), h: "Compras Ágiles entre 90 % y 100 % del tope (nacional ~3 %)" },
+    { k: "tn", t: "Tratos directos", v: (f) => (f.td_n ? `${num(f.td_n)} · ${clp(f.td_monto)}` : "—"), n: 1, s: (f) => f.td_monto },
+    { k: "tp", t: "% por trato directo", v: (f) => p0(f.td_pct), n: 1, s: (f) => f.td_pct },
+    { k: "em", t: "TD por emergencia", v: (f) => (f.td_n ? num(f.td_emergencia) : "—"), n: 1, s: (f) => f.td_emergencia || 0 },
+    { k: "ca", t: "Captura", v: (f) => p0(f.captura), n: 1, s: (f) => f.captura, h: "Parte del gasto en licitaciones de su organismo principal que se lleva" },
+    { k: "ac", t: "Acompañantes", v: (f) => num(f.acomp), n: 1, s: (f) => f.acomp },
+  ], filas, "proveedores", { k: "sc", dir: "desc" }, (f) => abrirProveedor(f));
+  $("pr-nota").textContent = `${num(r.total)} proveedores${r.total > r.mostradas ? ` · se muestran ${num(r.mostradas)}` : ""}. Clic en una columna para ordenar (por monto, sobreprecio, trato directo…) y en una fila para ver de qué se compone su puntaje.`;
+  if (estado.pr) renderDetalleProveedor();
+}
+function abrirProveedor(f) {
+  estado.pr = f;
+  $("pr-detalle").hidden = false;
+  renderDetalleProveedor();
+  $("pr-detalle").scrollIntoView({ behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth", block: "start" });
+}
+function renderDetalleProveedor() {
+  const f = estado.pr;
+  $("prd-nombre").textContent = f.nombre || f.codigo;
+  $("prd-sub").innerHTML = `RUT ${esc(f.rut || "—")} · código ${esc(f.codigo)}` + (f.idx != null ? ` · <a href="#" id="prd-ficha">Ver su ficha de licitaciones</a>` : "") + ` · <a href="#" id="prd-compras">Ver sus compras directas</a>`;
+  kpis("prd-kpis", [
+    ["Puntaje", String(Math.round(f.score))],
+    ["Monto total", clp(f.total)],
+    ["Licitaciones ganadas", num(f.lic_n), clp(f.lic_monto)],
+    ["Compras Ágiles", num(f.ag_n), clp(f.ag_monto)],
+    ["Tratos directos", num(f.td_n), clp(f.td_monto)],
+  ]);
+  const filas = Metricas.SCORE.map(([k, w, d]) => ({ k, w, d, x: f.comp[k] }));
+  tabla("prd-comp", [
+    { t: "Componente", v: (c) => c.d },
+    { t: "Peso máximo", v: (c) => num(c.w) + " pts", n: 1 },
+    { t: "Valor (0–1)", v: (c) => (c.x == null ? "sin datos" : barraPct(c.x)), html: 1, n: 1 },
+    { t: "Aporta", v: (c) => (c.x == null ? "0 pts" : num(c.w * c.x, 1) + " pts"), n: 1 },
+  ], filas);
+  const fi = $("prd-ficha");
+  if (fi) fi.addEventListener("click", (e) => { e.preventDefault(); mostrar("alertas"); abrirFicha(f.idx); });
+  $("prd-compras").addEventListener("click", (e) => { e.preventDefault(); $("c-ganador").value = f.rut || f.nombre; mostrar("compras"); });
 }
 
 // ---------- carga
@@ -1448,7 +1592,11 @@ async function iniciar() {
       render();
     }));
     let tBuscarC;
-    $("c-buscar").addEventListener("input", () => { clearTimeout(tBuscarC); tBuscarC = setTimeout(render, 200); });
+    for (const id of ["c-buscar", "c-ganador"]) $(id).addEventListener("input", () => { clearTimeout(tBuscarC); tBuscarC = setTimeout(render, 200); });
+    let tBuscarP;
+    $("pr-buscar").addEventListener("input", () => { clearTimeout(tBuscarP); tBuscarP = setTimeout(render, 200); });
+    for (const id of ["pr-min", "pr-tipo"]) $(id).addEventListener("change", render);
+    $("prd-cerrar").addEventListener("click", () => { estado.pr = null; $("pr-detalle").hidden = true; });
     $("cd-cerrar").addEventListener("click", () => { $("c-detalle").hidden = true; });
     await aplicar();
     mostrar((location.hash || "#resumen").slice(1));

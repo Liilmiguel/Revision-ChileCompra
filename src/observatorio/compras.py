@@ -80,6 +80,7 @@ def leer_mes(zip_path: Path) -> list[dict]:
                 "region": (r.get("RegionUnidadCompra") or "").strip() or None,
                 "prov": r.get("CodigoProveedor"),
                 "prov_nombre": r.get("NombreProveedor"),
+                "prov_rut": r.get("RutSucursal"),
                 "monto": _num(r.get("MontoTotalOC_PesosChilenos")),
                 "rubro": None,
                 "rubro2": None,
@@ -240,7 +241,7 @@ def analizar(ocs: list[dict]) -> dict:
     proveedores = {}
     for o in ocs:
         if o["prov"] in usados and o["prov"] not in proveedores:
-            proveedores[o["prov"]] = o["prov_nombre"]
+            proveedores[o["prov"]] = [o["prov_nombre"], o.get("prov_rut")]
 
     por_mes: dict[str, list] = defaultdict(lambda: [0, 0.0, 0, 0.0])
     for o in ocs:
@@ -271,7 +272,49 @@ def analizar(ocs: list[dict]) -> dict:
         "td_alto": altos,
         "proveedores": proveedores,
         "causales": Counter(o["causal"] for o in tds).most_common(),
+        "por_proveedor": por_proveedor(ocs, en_episodio),
     }
+
+
+# Campos de cada fila de proveedores_oc.json.
+CAMPOS_PROVEEDOR = [
+    "prov", "nombre", "rut", "ag_n", "ag_monto", "ag_banda", "ag_fracc", "td_n", "td_monto", "td_emergencia", "orgs",
+]  # fmt: skip
+
+
+def por_proveedor(ocs: list[dict], en_episodio: set[str]) -> list[list]:
+    """Compras Ágiles y tratos directos de cada proveedor (pestaña Proveedores de la web)."""
+    P: dict[str, dict] = {}
+    for o in ocs:
+        e = P.get(o["prov"])
+        if e is None:
+            e = P[o["prov"]] = {
+                "nombre": (o["prov_nombre"] or "")[:80],
+                "rut": o.get("prov_rut"),
+                "ag_n": 0,
+                "ag_monto": 0.0,
+                "ag_banda": 0,
+                "ag_fracc": 0,
+                "td_n": 0,
+                "td_monto": 0.0,
+                "td_emergencia": 0,
+                "orgs": set(),
+            }
+        e["orgs"].add(o["org"])
+        if o["tipo"] == "AG":
+            e["ag_n"] += 1
+            e["ag_monto"] += o["monto"]
+            e["ag_banda"] += bool(o.get("banda"))
+            e["ag_fracc"] += o["codigo"] in en_episodio
+        else:
+            e["td_n"] += 1
+            e["td_monto"] += o["monto"]
+            e["td_emergencia"] += "mergencia" in (o["causal"] or "")
+    return [
+        [c, e["nombre"], e["rut"], e["ag_n"], round(e["ag_monto"]), e["ag_banda"], e["ag_fracc"], e["td_n"],
+         round(e["td_monto"]), e["td_emergencia"], len(e["orgs"])]
+        for c, e in P.items()
+    ]  # fmt: skip
 
 
 def meses_cerrados(hoy: date, n: int) -> list[str]:
@@ -314,6 +357,11 @@ def generar(out_dir: Path, raw_dir: Path, meses: int = 12) -> dict:
         },
         **analizar(ocs),
     }
+    # Por proveedor va aparte (~6 MB): solo lo carga la pestaña Proveedores.
+    por_prov = resultado.pop("por_proveedor")
+    (out_dir / "proveedores_oc.json").write_text(
+        json.dumps({"campos": CAMPOS_PROVEEDOR, "filas": por_prov}, ensure_ascii=False, separators=(",", ":"))
+    )
     (out_dir / "compras.json").write_text(
         json.dumps(resultado, ensure_ascii=False, separators=(",", ":"), allow_nan=False)
     )

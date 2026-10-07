@@ -14,6 +14,7 @@ columnas binarias (typed arrays) y catálogos JSON:
     pares.json      pares "acompañante" de proveedores (fct_par_proveedores)
     meta.json       layout de los binarios, fecha de corte y constantes
     compras.json    Compras Ágiles y tratos directos (copia de data/compras/compras.json)
+    proveedores_oc.json  Compras Ágiles y tratos directos por proveedor (pestaña Proveedores)
     vivo.json       licitaciones en curso (copia de data/vivo/vivo.json, ver observatorio.vivo)
 
 Las reglas son las de observatorio.metricas: los números deben coincidir con el
@@ -168,6 +169,13 @@ def main(out: Path) -> None:
         "extra": extra,
         "rubro": np.array(principal, dtype=np.uint16),
         "estim": estimado_clp.astype(np.float32),
+        # % del monto adjudicado pagado sobre la oferta aceptada más barata (int_licitacion_competencia),
+        # entero 0–100; 255 = sin dato. En uint8 para no pasar el límite de 16 MB de lic.b64.txt.
+        "rsmb": np.where(
+            np.isnan(rsmb := lic["razon_sobre_mas_barata"].to_numpy(dtype="float64", na_value=np.nan)),
+            255,
+            np.clip(np.round(100 * np.nan_to_num(rsmb)), 0, 100),
+        ).astype(np.uint8),
     }
     layout, offset = [], 0
     with (out / "lic.bin").open("wb") as fh:
@@ -317,12 +325,13 @@ def main(out: Path) -> None:
     # base64 como .txt (la página los decodifica). Los .bin quedan para verificar.py.
     for name in ("lic", "adj"):
         (out / f"{name}.b64.txt").write_bytes(base64.b64encode((out / f"{name}.bin").read_bytes()))
-    # Compras Ágiles y tratos directos (observatorio compras), si existe.
-    compras = ROOT / "data" / "compras" / "compras.json"
-    if compras.exists():
-        shutil.copy(compras, out / "compras.json")
-    else:
-        print("aviso: falta data/compras/compras.json (make compras); la pestaña Compras directas no tendrá datos")
+    # Compras Ágiles y tratos directos (observatorio compras), si existen.
+    for nombre in ("compras.json", "proveedores_oc.json"):
+        origen = ROOT / "data" / "compras" / nombre
+        if origen.exists():
+            shutil.copy(origen, out / nombre)
+        else:
+            print(f"aviso: falta data/compras/{nombre} (make compras)")
     # Licitaciones en curso (observatorio vivo): se publica la última generada, si existe.
     vivo = ROOT / "data" / "vivo" / "vivo.json"
     if vivo.exists():

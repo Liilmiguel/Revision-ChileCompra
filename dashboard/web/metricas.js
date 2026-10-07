@@ -502,7 +502,106 @@
     return { puntaje, senales: s, baja };
   }
 
-  const M = { cargar, mascara, cuantil, mediana, resumen, mensual, competencia, competenciaPor, precio, concentracion, proceso, alertasResumen, proveedoresRiesgo, organismosRiesgo, fichaProveedor, VIVO_SENALES, historialVivo, evaluarVivo };
+  // ---------- proveedores: licitaciones (filtradas por la máscara) + Compras Ágiles y tratos
+  // directos de los últimos 12 meses (proveedores_oc.json). Puntaje 0–100: suma de componentes
+  // 0–1 con pesos fijos que suman 100; un componente sin datos aporta 0 (sin evidencia, sin
+  // puntos). Con pesos renormalizados, cualquier persona con 10 tratos directos chicos (p. ej.
+  // honorarios) quedaba en 100. Los componentes de trato directo se escalan por monto.
+  const SCORE = [
+    // [clave, peso, descripción]
+    ["riesgo", 15, "Puntaje de riesgo medio de sus licitaciones ganadas, ponderado por monto (50 o más = máximo)"],
+    ["barata", 15, "Parte del monto adjudicado pagada sobre la oferta aceptada más barata (30 % o más = máximo)"],
+    ["estimado", 10, "Parte del monto adjudicado que excede lo estimado (20 % o más = máximo)"],
+    ["unico", 10, "Parte de su monto en licitaciones donde fue el único oferente"],
+    ["captura", 10, "Parte del gasto en licitaciones de su organismo principal que se lleva"],
+    ["acomp", 5, "Tiene acompañantes: proveedores que ofertan con él sin ganarle nunca"],
+    ["td", 15, "Parte de lo que recibe que llega por trato directo, escalada por monto (pleno desde 1.000 UTM en tratos directos)"],
+    ["emergencia", 5, "Parte de sus tratos directos por emergencia, escalada por monto (pleno desde 1.000 UTM)"],
+    ["fracc", 10, "Parte de sus Compras Ágiles en episodios de fraccionamiento (desde 5 Compras Ágiles)"],
+    ["banda", 5, "Parte de sus Compras Ágiles entre 90 % y 100 % del tope (15 % o más = máximo; nacional ~3 %; desde 10)"],
+  ];
+  const TD_PLENO = 1000 * 72000; // 1.000 UTM
+  const lim = (x) => Math.max(0, Math.min(1, x));
+
+  function proveedoresScore(d, mk, pares, cat, oc) {
+    const K = d.k;
+    const { estado, puntaje, ofer, razon, rsmb } = d.c;
+    const A = d.adj;
+    const L = new Map(); // índice de proveedor (catálogo) -> acumulados de licitaciones
+    for (let j = 0; j < A.lic.length; j++) {
+      const li = A.lic[j];
+      if (!mk[li] || estado[li] !== ADJ) continue;
+      const m = A.monto[j];
+      let e = L.get(A.prov[j]);
+      if (!e) L.set(A.prov[j], (e = { lics: new Set(), m: 0, mp: 0, mu: 0, mb: 0, b: 0, me: 0, ex: 0 }));
+      e.lics.add(li);
+      e.m += m;
+      e.mp += m * puntaje[li];
+      if (ofer[li] === 1) e.mu += m;
+      if (rsmb[li] !== 255) { e.mb += m; e.b += (m * rsmb[li]) / 100; }
+      // Parte del monto que excede lo estimado (acotada a 0–1; la razón sin acotar la dominaban
+      // estimados mal digitados con razones de 20 o más).
+      if (!Number.isNaN(razon[li]) && razon[li] >= K.RAZON_PRECIO_UNITARIO) { e.me += m; if (razon[li] > 1) e.ex += m * (1 - 1 / razon[li]); }
+    }
+    const riesgo = new Map(proveedoresRiesgo(d, mk, 1, pares).map((r) => [r.prov, r]));
+    const filas = new Map(); // código de proveedor -> fila
+    for (const [i, e] of L) {
+      const [nombre, rut, ofertadas, codigo] = cat.proveedores[i];
+      const r = riesgo.get(i);
+      filas.set(codigo, {
+        codigo, idx: i, nombre, rut, lic_n: e.lics.size, lic_monto: e.m, ofertadas,
+        exito: ofertadas ? Math.min(1, e.lics.size / ofertadas) : null,
+        puntaje: e.m ? e.mp / e.m : null, unico: e.m ? e.mu / e.m : null,
+        barata: e.mb ? e.b / e.mb : null, estimado: e.me ? e.ex / e.me : null,
+        captura: r ? r.captura : null, dependencia: r ? r.dependencia : null, acomp: r ? r.n_acompanantes : 0,
+        org_lic: r ? r.n_org : 0,
+      });
+    }
+    if (oc) {
+      const idx = new Map(oc.campos.map((c, k) => [c, k]));
+      const g = (row, c) => row[idx.get(c)];
+      for (const row of oc.filas) {
+        const c = g(row, "prov");
+        let f = filas.get(c);
+        if (!f) filas.set(c, (f = { codigo: c, idx: null, nombre: g(row, "nombre"), rut: g(row, "rut"), lic_n: 0, lic_monto: 0, acomp: 0 }));
+        Object.assign(f, {
+          ag_n: g(row, "ag_n"), ag_monto: g(row, "ag_monto"), ag_banda: g(row, "ag_banda"), ag_fracc: g(row, "ag_fracc"),
+          td_n: g(row, "td_n"), td_monto: g(row, "td_monto"), td_emergencia: g(row, "td_emergencia"), org_oc: g(row, "orgs"),
+        });
+      }
+    }
+    const peso = new Map(SCORE.map(([k, w]) => [k, w]));
+    for (const f of filas.values()) {
+      f.ag_n ||= 0; f.ag_monto ||= 0; f.td_n ||= 0; f.td_monto ||= 0;
+      f.total = f.lic_monto + f.ag_monto + f.td_monto;
+      f.td_pct = f.total ? f.td_monto / f.total : null;
+      f.fracc_pct = f.ag_n ? f.ag_fracc / f.ag_n : null;
+      f.banda_pct = f.ag_n ? f.ag_banda / f.ag_n : null;
+      const comp = {};
+      if (f.lic_n) {
+        comp.riesgo = lim(f.puntaje / 50);
+        if (f.barata != null) comp.barata = lim(f.barata / 0.3);
+        if (f.estimado != null) comp.estimado = lim(f.estimado / 0.2);
+        comp.unico = lim(f.unico);
+        if (f.captura != null) comp.captura = lim(f.captura);
+        comp.acomp = f.acomp > 0 ? 1 : 0;
+      }
+      if (f.td_n) {
+        const escala = lim(f.td_monto / TD_PLENO);
+        comp.td = lim(f.td_pct) * escala;
+        comp.emergencia = lim(f.td_emergencia / f.td_n) * escala;
+      }
+      if (f.ag_n >= 5) comp.fracc = lim(f.fracc_pct);
+      if (f.ag_n >= 10) comp.banda = lim(f.banda_pct / 0.15);
+      let s = 0;
+      for (const [k, x] of Object.entries(comp)) s += peso.get(k) * x;
+      f.comp = comp;
+      f.score = s; // los pesos suman 100
+    }
+    return [...filas.values()];
+  }
+
+  const M = { cargar, mascara, cuantil, mediana, resumen, mensual, competencia, competenciaPor, precio, concentracion, proceso, alertasResumen, proveedoresRiesgo, organismosRiesgo, fichaProveedor, VIVO_SENALES, historialVivo, evaluarVivo, SCORE, proveedoresScore };
   if (typeof module !== "undefined" && module.exports) module.exports = M;
   else root.Metricas = M;
 })(typeof self !== "undefined" ? self : this);

@@ -63,3 +63,15 @@ def test_meses_cerrados_excluye_el_actual():
     from datetime import date
 
     assert compras.meses_cerrados(date(2026, 1, 15), 3) == ["2025-10", "2025-11", "2025-12"]
+
+
+def test_por_proveedor_suma_compras_agiles_y_tratos_directos():
+    xs = [
+        {**ag("a", "2026-09-01", 40), "prov_nombre": "P", "prov_rut": "1-9", "banda": True},
+        {**ag("b", "2026-09-02", 60, org="O2"), "prov_nombre": "P", "prov_rut": "1-9"},
+        {**ag("c", "2026-09-03", 500), "tipo": "TD", "causal": "Emergencia, urgencia o imprevisto", "prov_nombre": "P"},
+    ]
+    (fila,) = compras.por_proveedor(xs, {"a"})
+    d = dict(zip(compras.CAMPOS_PROVEEDOR, fila, strict=True))
+    assert d["ag_n"] == 2 and d["ag_monto"] == 100 and d["ag_banda"] == 1 and d["ag_fracc"] == 1
+    assert d["td_n"] == 1 and d["td_monto"] == 500 and d["td_emergencia"] == 1 and d["orgs"] == 2 and d["rut"] == "1-9"
