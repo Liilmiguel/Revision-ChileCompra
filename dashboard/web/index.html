@@ -1658,13 +1658,13 @@ function abrirGrupo(g) {
 let CONF = null, cargandoConf = null;
 function cargarConflictos() {
   if (!cargandoConf) cargandoConf = fetch("conflictos.json")
-    .then((r) => { if (!r.ok) throw new Error("conflictos.json: HTTP " + r.status); return r.json(); })
-    .then((d) => { CONF = d; render(); })
+    .then((r) => { if (r.status === 404) return null; if (!r.ok) throw new Error("conflictos.json: HTTP " + r.status); return r.json(); })
+    .then((d) => { if (!d) { $("cf-nota").textContent = "Los datos de InfoProbidad aún se están extrayendo; esta pestaña se completará en la próxima actualización."; return; } CONF = d; render(); })
     .catch((e) => { cargandoConf = null; $("cf-nota").innerHTML = `<span class="aviso">No se pudieron cargar los cruces con InfoProbidad (${esc(e.message)}).</span>`; });
   return cargandoConf;
 }
 function renderConflictos() {
-  if (!CONF) { $("cf-nota").textContent = "Cargando cruces con InfoProbidad…"; cargarConflictos(); return; }
+  if (!CONF) { if (!cargandoConf) $("cf-nota").textContent = "Cargando cruces con InfoProbidad…"; cargarConflictos(); return; }
   const C = CONF, ver = $("cf-ver").value, sim = Number($("cf-sim").value);
   $("cf-sim").disabled = ver !== "conflictos";
   $("cf-fresco").textContent = `Generado ${C.generado.slice(0, 16).replace("T", " ")} UTC · ${num(C.participaciones)} participaciones en sociedades declaradas${C.fuente ? ` (${C.fuente})` : ""}.`;

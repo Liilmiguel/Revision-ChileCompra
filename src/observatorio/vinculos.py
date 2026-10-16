@@ -219,7 +219,7 @@ def generar(conn, out_dir: Path, raw_dir: Path, ticket: str | None, max_consulta
     }
     montos: dict[str, list] = defaultdict(lambda: [0, 0])
     for p, m in conn.execute(
-        "select codigo_proveedor, sum(monto_adjudicado) from marts.fct_adjudicacion a "
+        "select a.codigo_proveedor, sum(a.monto_adjudicado) from marts.fct_adjudicacion a "
         "join marts.fct_licitacion l using (codigo_externo) "
         "where a.moneda = 'CLP' and l.fecha_publicacion >= '2024-01-01' group by 1"
     ):
