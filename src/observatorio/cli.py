@@ -44,6 +44,9 @@ def main(argv: list[str] | None = None) -> None:
     p_precios = sub.add_parser("precios", help="comparación de precios unitarios en órdenes de compra para la web")
     p_precios.add_argument("--meses", type=int, default=12, help="meses completos más recientes")
 
+    p_vinc = sub.add_parser("vinculos", help="grupos de proveedores que comparten dirección o contacto")
+    p_vinc.add_argument("--max-consultas", type=int, default=6000, help="consultas nuevas a la API (~2,5 s c/u)")
+
     args = parser.parse_args(argv)
     if args.command == "precios":
         from observatorio import precios
@@ -96,6 +99,14 @@ def main(argv: list[str] | None = None) -> None:
 
             counts = snapshot.export(conn, config.ROOT / "data" / "snapshot", args.desde)
             _print({k: f"{v} filas" for k, v in counts.items()})
+        elif args.command == "vinculos":
+            import os
+
+            from observatorio import vinculos
+
+            ticket = os.environ.get("MERCADO_PUBLICO_TICKET") or None
+            r = vinculos.generar(conn, config.ROOT / "data" / "compras", config.raw_dir(), ticket, args.max_consultas)
+            _print({k: str(v) for k, v in r.items()})
         elif args.command == "status":
             for source, ok, errors, last in pipeline.status(conn):
                 print(f"{source:12} {ok:5} cargados  {errors:3} errores  última: {last:%Y-%m-%d %H:%M}")

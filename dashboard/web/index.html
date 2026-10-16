@@ -183,6 +183,7 @@ footer { margin-top: 32px; font-size: 12.5px; color: var(--muted); }
     <button role="tab" data-tab="explorar">Explorar</button>
     <button role="tab" data-tab="compras">Compras directas</button>
     <button role="tab" data-tab="proveedores">Proveedores</button>
+    <button role="tab" data-tab="vinculos">Vínculos</button>
     <button role="tab" data-tab="metodologia">Metodología</button>
   </nav>
 
@@ -451,6 +452,31 @@ footer { margin-top: 32px; font-size: 12.5px; color: var(--muted); }
     </div>
   </section>
 
+  <!-- VÍNCULOS -->
+  <section class="panel" id="p-vinculos" role="tabpanel" hidden>
+    <h2>Proveedores vinculados</h2>
+    <p class="sub">Empresas distintas (RUT distinto) que comparten <b>dirección</b> o <b>persona de contacto</b> en sus órdenes de compra. Importa cuando además <b>ofertan en las mismas licitaciones</b>: si dos oferentes son en la práctica la misma empresa, la competencia era aparente. Se buscan entre proveedores con comportamiento llamativo (ofertas idénticas, casi siempre los únicos dos oferentes o acompañantes). Un vínculo no prueba un mismo dueño ni una irregularidad: es una pregunta para el expediente.</p>
+    <p class="nota" id="vi-fresco"></p>
+    <div class="kpis" id="k-vinculos"></div>
+    <div class="card">
+      <div class="controles">
+        <div class="campo" style="flex:1 1 240px"><label for="vi-buscar">Proveedor (nombre o RUT)</label>
+          <input type="search" id="vi-buscar" placeholder="Nombre o RUT de cualquier miembro" autocomplete="off" style="width:100%"></div>
+        <div class="campo"><label for="vi-ver">Mostrar</label>
+          <select id="vi-ver"><option value="compiten" selected>Grupos que ofertaron juntos</option><option value="todos">Todos los grupos</option></select></div>
+      </div>
+      <p class="nota" id="vi-nota"></p>
+      <div class="tabla" id="t-vinculos" style="max-height:640px"></div>
+    </div>
+    <div class="card ficha" id="vi-detalle" hidden>
+      <div style="display:flex;justify-content:space-between;gap:12px;align-items:start;flex-wrap:wrap">
+        <div><span class="eyebrow">Grupo vinculado</span><h2 id="vid-titulo"></h2><p class="nota" id="vid-sub"></p></div>
+        <button class="btn" id="vid-cerrar" type="button">Cerrar</button>
+      </div>
+      <div class="tabla" id="vid-miembros" style="max-height:none"></div>
+    </div>
+  </section>
+
   <!-- METODOLOGÍA -->
   <section class="panel" id="p-metodologia" role="tabpanel" hidden>
     <div class="metodo">
@@ -469,6 +495,7 @@ footer { margin-top: 32px; font-size: 12.5px; color: var(--muted); }
         <dt>Compras directas</dt><dd>Órdenes de compra de los últimos 12 meses completos (descarga masiva de órdenes de compra): Compras Ágiles (hasta 100 UTM con impuestos) y tratos directos. El tope de cada mes se mide en los datos (percentil 99,95 de los montos). <b>Fraccionamiento</b>: 3 o más Compras Ágiles del mismo organismo al mismo proveedor y rubro en 30 días que juntas superan el tope; en hospitales suele reflejar compras recurrentes de insumos que debieron ir por licitación de suministro o convenio. <b>Bajo el tope</b>: entre 90 % y 100 % del tope; se compara la proporción de cada organismo con la nacional. <b>Trato directo recurrente</b>: 5 o más del mismo organismo al mismo proveedor. <b>Monto alto</b>: sobre 1.000 UTM.</dd>
         <dt>Puntaje de proveedores</dt><dd>Suma de diez componentes entre 0 y 1 con pesos fijos que suman 100; un componente sin datos aporta 0: riesgo medio de sus licitaciones ponderado por monto (10), parte del monto pagada sobre la oferta aceptada más barata (15), parte del monto que excede lo estimado (10), monto en licitaciones sin competencia (10), captura de su organismo principal (5), acompañantes (5), parte de lo recibido por trato directo (15) y parte de sus tratos directos por emergencia (5), ambos escalados por monto hasta 1.000 UTM, Compras Ágiles en fraccionamiento (10), Compras Ágiles justo bajo el tope (5) y exceso de precio unitario sobre la mediana del mismo producto (10). Se descartó renormalizar por los componentes con datos: cualquier persona con diez tratos directos chicos (honorarios) quedaba en 100. Las licitaciones siguen los filtros; las compras directas son de los últimos 12 meses. Un puntaje alto indica dónde revisar primero, no una irregularidad.</dd>
         <dt>Precios unitarios</dt><dd>Todas las líneas en pesos de las órdenes de compra del año (licitación, convenio marco y compras directas). Mismo producto: mismo código ONU, misma unidad y mismas primeras 6 palabras de la especificación. Solo bienes: en servicios la unidad («mes», «global») no es una cantidad comparable. <b>Sobre la mediana</b>: compra directa a 3 o más veces la mediana (con 5+ compras de 2+ organismos). <b>Mismo proveedor, precios distintos</b>: el proveedor vendió el mismo producto por compra directa a precios que difieren 1,5 o más veces. <b>Sin precio unitario</b>: compra directa sobre 1.000 UTM cargada como «1 unidad no definida», «global» o como un ítem de cantidad 1 a 100+ veces la mediana. Se excluyen razones sobre 50 veces (casi siempre errores de unidad).</dd>
+        <dt>Proveedores vinculados</dt><dd>Candidatos: proveedores que ofertaron el mismo total no redondo que otro, que casi siempre son los únicos dos oferentes (5+ licitaciones juntos, la mitad o más solos) o que son acompañantes. Para cada uno se consulta en la API una orden de compra reciente, que trae su dirección y su persona de contacto. Quedan vinculados los RUT distintos con la misma dirección (calle, número y comuna) o el mismo contacto; un valor compartido por más de 6 proveedores se descarta (oficinas o contadores comunes). La página no muestra direcciones ni nombres de contacto. Un vínculo no prueba un mismo dueño.</dd>
         <dt>En curso</dt><dd>Abiertas: listado de licitaciones publicadas de la API de ChileCompra y el detalle de cada una. En evaluación: cerradas sin adjudicar de los últimos cuatro meses de la descarga masiva, con sus ofertas. Señales (puntos): oferente único (25), oferta junto a un acompañante habitual (20), todas las ofertas más de 20 % sobre lo estimado (15), estimado más de 1,5 veces el tope del tramo de su tipo (15), plazo en el 10 % más corto de su tipo (10), organismo con 3 o más adjudicadas de riesgo alto y una tasa de al menos 3 veces la nacional (10), oferente con 3 o más ganadas de riesgo alto que sean al menos 10 % de sus ganadas (10). Oferta muy baja: total bajo 30 % de la mediana de las demás del mismo alcance; no suma puntos, se muestra aparte: puede anticipar incumplimiento o ser un error.</dd>
         <dt>Licitaciones maduras</dt><dd>Para la pregunta 4 solo cuentan las cerradas hace más de 120 días, para que las que aún pueden adjudicarse no inflen las tasas de fracaso.</dd>
       </dl>
@@ -514,7 +541,7 @@ const FICHA = (codigo) => "http://www.mercadopublico.cl/fichaLicitacion.html?idL
 const CORTO = ["oferente único", "descalificada", "sobre más barata", "sobre estimado", "plazo corto", "precio ref."];
 
 // ---------- pestañas (con #ancla)
-const TABS = ["resumen", "competencia", "precio", "concentracion", "proceso", "alertas", "vivo", "explorar", "compras", "proveedores", "metodologia"];
+const TABS = ["resumen", "competencia", "precio", "concentracion", "proceso", "alertas", "vivo", "explorar", "compras", "proveedores", "vinculos", "metodologia"];
 function mostrar(tab) {
   if (!TABS.includes(tab)) tab = "resumen";
   estado.tab = tab;
@@ -757,6 +784,7 @@ function render() {
   if (tab === "explorar") renderExplorar(X);
   if (tab === "compras") renderCompras();
   if (tab === "proveedores") renderProveedores(X);
+  if (tab === "vinculos") renderVinculos();
 }
 
 // ---------- señales de alerta
@@ -1549,6 +1577,61 @@ function renderDetalleProveedor() {
   $("prd-compras").addEventListener("click", (e) => { e.preventDefault(); $("c-ganador").value = f.rut || f.nombre; mostrar("compras"); });
 }
 
+// ---------- vínculos entre proveedores (vinculos.json)
+let VINC = null, cargandoVinc = null;
+function cargarVinculos() {
+  if (!cargandoVinc) cargandoVinc = fetch("vinculos.json")
+    .then((r) => { if (!r.ok) throw new Error("vinculos.json: HTTP " + r.status); return r.json(); })
+    .then((d) => { VINC = d; render(); })
+    .catch((e) => { cargandoVinc = null; $("vi-nota").innerHTML = `<span class="aviso">No se pudieron cargar los vínculos (${esc(e.message)}).</span>`; });
+  return cargandoVinc;
+}
+const VTXT = { direccion: "misma dirección", contacto: "mismo contacto" };
+function renderVinculos() {
+  if (!VINC) { $("vi-nota").textContent = "Cargando vínculos…"; cargarVinculos(); return; }
+  const V = VINC, R = V.resumen;
+  const provIdx = (c) => { if (!CAT._ix) CAT._ix = new Map(CAT.proveedores.map((p, i) => [p[3], i])); return CAT._ix.get(c); };
+  $("vi-fresco").textContent = `Generado ${V.generado.slice(0, 16).replace("T", " ")} UTC · ${num(R.candidatos)} proveedores candidatos, ${num(R.consultados)} consultados en la API. Se descartaron ${num(R.descartes.direccion)} direcciones y ${num(R.descartes.contacto)} contactos compartidos por más de ${V.constantes.MAX_COMPARTIDO} proveedores (oficinas o contadores comunes).`;
+  const q = normal($("vi-buscar").value.trim()), qr = q.replace(/[.\s-]/g, "");
+  const ver = $("vi-ver").value;
+  const filas = V.grupos.filter((g) => (ver === "todos" || g.juntos > 0) &&
+    (!q || g.miembros.some(([, n, r]) => normal(n || "").includes(q) || (qr.length >= 4 && (r || "").replace(/[.\s-]/g, "").toLowerCase().includes(qr)))));
+  const comp = V.grupos.filter((g) => g.juntos > 0);
+  kpis("k-vinculos", [
+    ["Grupos vinculados", num(V.grupos.length), `${num(V.grupos.reduce((a, g) => a + g.miembros.length, 0))} proveedores`],
+    ["Ofertaron juntos", num(comp.length), `${num(comp.reduce((a, g) => a + g.juntos, 0))} licitaciones en total`],
+    ["Con ofertas idénticas", num(V.grupos.filter((g) => g.identicas > 0).length)],
+    ["Monto recibido por grupos que ofertaron juntos", clp(comp.reduce((a, g) => a + g.monto, 0))],
+  ]);
+  const nombres = (g) => g.miembros.map(([c, n]) => { const i = provIdx(c); return i != null ? `<a href="#" data-prov="${i}">${esc(recorta(n || c, 36))}</a>` : esc(recorta(n || c, 36)); }).join("<br>");
+  const r = tablaOrdenable("t-vinculos", [
+    { k: "m", t: "Proveedores del grupo", v: nombres, html: 1, s: (g) => g.miembros[0][1] || "" },
+    { k: "n", t: "Miembros", v: (g) => num(g.miembros.length), n: 1, s: (g) => g.miembros.length },
+    { k: "v", t: "Vínculo", v: (g) => g.vinculos.map((t) => `<span class="marca">${VTXT[t] || t}</span>`).join(""), html: 1 },
+    { k: "j", t: "Licitaciones juntos", v: (g) => num(g.juntos), n: 1, s: (g) => g.juntos, h: "Licitaciones (de 2 a 10 oferentes) en que ofertaron dos o más miembros del grupo" },
+    { k: "so", t: "Solo ellos", v: (g) => num(g.solos), n: 1, s: (g) => g.solos, h: "Licitaciones en que los dos únicos oferentes eran del grupo" },
+    { k: "id", t: "Ofertas idénticas", v: (g) => num(g.identicas), n: 1, s: (g) => g.identicas },
+    { k: "ml", t: "Monto licitaciones", v: (g) => clp(g.miembros.reduce((a, x) => a + x[3], 0)), n: 1, s: (g) => g.miembros.reduce((a, x) => a + x[3], 0) },
+    { k: "mo", t: "Monto compras directas", v: (g) => clp(g.miembros.reduce((a, x) => a + x[4], 0)), n: 1, s: (g) => g.miembros.reduce((a, x) => a + x[4], 0), h: "Compras Ágiles y tratos directos de los últimos 12 meses" },
+  ], filas, "vinculos", { k: "j", dir: "desc" }, (g) => abrirGrupo(g));
+  $("vi-nota").textContent = `${num(r.total)} grupos${r.total > r.mostradas ? ` · se muestran ${num(r.mostradas)}` : ""}. Clic en una fila para ver sus miembros; en un nombre, para su ficha. No se muestran direcciones ni nombres de contacto: solo el tipo de vínculo.`;
+  $("t-vinculos").querySelectorAll("a[data-prov]").forEach((el) => el.addEventListener("click", (e) => { e.preventDefault(); e.stopPropagation(); mostrar("alertas"); abrirFicha(Number(el.dataset.prov)); }));
+}
+function abrirGrupo(g) {
+  $("vi-detalle").hidden = false;
+  $("vid-titulo").textContent = g.miembros.map((m) => m[1] || m[0]).slice(0, 3).join(" · ") + (g.miembros.length > 3 ? " …" : "");
+  $("vid-sub").textContent = `Vínculo: ${g.vinculos.map((t) => VTXT[t] || t).join(" y ")}. Ofertaron juntos en ${num(g.juntos)} licitaciones (en ${num(g.solos)} eran los únicos dos oferentes; ${num(g.identicas)} con ofertas idénticas).`;
+  tabla("vid-miembros", [
+    { t: "Proveedor", v: (m) => m[1] || m[0] },
+    { t: "RUT", v: (m) => m[2] || "—", code: 1 },
+    { t: "Monto licitaciones", v: (m) => clp(m[3]), n: 1 },
+    { t: "Monto compras directas", v: (m) => clp(m[4]), n: 1 },
+    { t: "Ver", v: (m) => `<a href="#" data-rut="${esc(m[2] || m[1] || "")}">sus licitaciones</a>`, html: 1 },
+  ], g.miembros);
+  $("vid-miembros").querySelectorAll("a[data-rut]").forEach((el) => el.addEventListener("click", (e) => { e.preventDefault(); $("x-ganador").value = el.dataset.rut; mostrar("explorar"); }));
+  $("vi-detalle").scrollIntoView({ behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth", block: "start" });
+}
+
 // ---------- carga
 // Los binarios se publican en base64 (.b64.txt): la plataforma no sirve archivos .bin.
 async function bin64(f) {
@@ -1677,6 +1760,10 @@ async function iniciar() {
     $("pr-buscar").addEventListener("input", () => { clearTimeout(tBuscarP); tBuscarP = setTimeout(render, 200); });
     for (const id of ["pr-min", "pr-tipo"]) $(id).addEventListener("change", render);
     $("prd-cerrar").addEventListener("click", () => { estado.pr = null; $("pr-detalle").hidden = true; });
+    let tBuscarVi;
+    $("vi-buscar").addEventListener("input", () => { clearTimeout(tBuscarVi); tBuscarVi = setTimeout(render, 200); });
+    $("vi-ver").addEventListener("change", render);
+    $("vid-cerrar").addEventListener("click", () => { $("vi-detalle").hidden = true; });
     $("cd-cerrar").addEventListener("click", () => { $("c-detalle").hidden = true; });
     await aplicar();
     mostrar((location.hash || "#resumen").slice(1));

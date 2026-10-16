@@ -205,6 +205,25 @@ La conclusión incómoda: en compras directas el precio unitario solo se puede c
 una fracción de los casos. Las descripciones son texto libre y los contratos grandes se
 cargan como un ítem sin cantidad: justo donde está la plata, no hay precio que comparar.
 
+## Proveedores vinculados (pestaña «Vínculos»)
+
+Se pidió una pestaña de «accionistas más beneficiados». No se hizo así por dos razones: Mercado
+Público no publica accionistas (las fuentes que los tienen —Registro de Empresas, CMF— no son
+alcanzables desde el entorno y no cubren a los dueños reales de sociedades cerradas), y un
+ranking de personas con nombre ligado a «sobrecostos» a partir de señales heurísticas puede
+dañar a gente sin fundamento. En su lugar:
+
+1. **Conflictos de interés de funcionarios** (pendiente): cruzar las declaraciones de patrimonio
+   de InfoProbidad con los proveedores de su propio organismo. Requiere habilitar
+   `infoprobidad.cl` en la red del entorno.
+2. **Grupos de proveedores vinculados** (`src/observatorio/vinculos.py`, `make vinculos`): RUT
+   distintos que comparten dirección (calle, número y comuna) o persona de contacto, según el
+   detalle de una orden de compra en la API. Solo se consultan candidatos por comportamiento en
+   licitaciones desde 2024: ofertas idénticas no redondas, casi siempre los únicos dos oferentes
+   (5+ juntos, la mitad o más solos) o acompañantes (2.972 proveedores, ~2,5 h de API). Un
+   valor compartido por más de 6 proveedores se descarta (oficina o contador común). La web
+   muestra el tipo de vínculo y cuánto compitieron entre sí, no direcciones ni contactos.
+
 ## Licitaciones en curso (pestaña «En curso» de la versión web)
 
 Las señales anteriores se calculan cuando la licitación ya está adjudicada: sirven para

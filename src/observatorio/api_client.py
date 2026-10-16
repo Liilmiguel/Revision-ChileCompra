@@ -59,12 +59,12 @@ class MercadoPublicoClient:
             self._sleep(wait)
         self._last_call = time.monotonic()
 
-    def _get(self, params: dict) -> dict:
+    def _get(self, params: dict, recurso: str = "licitaciones.json") -> dict:
         last_error = ""
         for attempt in range(self._max_retries):
             self._throttle()
             try:
-                resp = self._http.get("licitaciones.json", params={**params, "ticket": self._ticket})
+                resp = self._http.get(recurso, params={**params, "ticket": self._ticket})
                 if resp.status_code < 500:
                     body = resp.json()
                     if "Listado" in body:
@@ -91,6 +91,11 @@ class MercadoPublicoClient:
     def activas(self) -> list[dict]:
         """Licitaciones publicadas en este momento (solo 4 campos por licitación)."""
         return self._get({"estado": "activas"})["Listado"]
+
+    def orden_compra(self, codigo: str) -> dict | None:
+        """Detalle de una orden de compra (incluye dirección y contacto del proveedor)."""
+        listado = self._get({"codigo": codigo}, "ordenesdecompra.json")["Listado"]
+        return listado[0] if listado else None
 
     def detail(self, codigo_externo: str) -> dict | None:
         listado = self._get({"codigo": codigo_externo})["Listado"]
