@@ -17,6 +17,7 @@ columnas binarias (typed arrays) y catálogos JSON:
     proveedores_oc.json  Compras Ágiles y tratos directos por proveedor (pestaña Proveedores)
     precios.json    comparación de precios unitarios en órdenes de compra (observatorio precios)
     vinculos.json   grupos de proveedores que comparten dirección o contacto (observatorio vinculos)
+    conflictos.json declarantes de InfoProbidad cuya sociedad le vende a su organismo (observatorio conflictos)
     vivo.json       licitaciones en curso (copia de data/vivo/vivo.json, ver observatorio.vivo)
 
 Las reglas son las de observatorio.metricas: los números deben coincidir con el
@@ -328,7 +329,7 @@ def main(out: Path) -> None:
     for name in ("lic", "adj"):
         (out / f"{name}.b64.txt").write_bytes(base64.b64encode((out / f"{name}.bin").read_bytes()))
     # Compras Ágiles y tratos directos (observatorio compras), si existen.
-    for nombre in ("compras.json", "proveedores_oc.json", "precios.json", "vinculos.json"):
+    for nombre in ("compras.json", "proveedores_oc.json", "precios.json", "vinculos.json", "conflictos.json"):
         origen = ROOT / "data" / "compras" / nombre
         if origen.exists():
             shutil.copy(origen, out / nombre)

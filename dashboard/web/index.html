@@ -184,6 +184,7 @@ footer { margin-top: 32px; font-size: 12.5px; color: var(--muted); }
     <button role="tab" data-tab="compras">Compras directas</button>
     <button role="tab" data-tab="proveedores">Proveedores</button>
     <button role="tab" data-tab="vinculos">Vínculos</button>
+    <button role="tab" data-tab="conflictos">Conflictos</button>
     <button role="tab" data-tab="metodologia">Metodología</button>
   </nav>
 
@@ -477,6 +478,26 @@ footer { margin-top: 32px; font-size: 12.5px; color: var(--muted); }
     </div>
   </section>
 
+  <!-- CONFLICTOS -->
+  <section class="panel" id="p-conflictos" role="tabpanel" hidden>
+    <h2>Posibles conflictos de interés</h2>
+    <p class="sub">Autoridades y funcionarios que declaran en <b>InfoProbidad</b> (Ley 20.880) participación en una sociedad que le <b>vende al organismo donde trabajan</b>, por órdenes de compra de los últimos 12 meses o licitaciones adjudicadas desde 2024. El organismo declarado es texto libre y se empareja por nombre con los compradores: la columna <i>Coincidencia</i> dice qué tan seguro es ese cruce. Una coincidencia <b>no prueba un conflicto</b>: el funcionario pudo abstenerse o no tener injerencia en la compra. Es la pregunta a hacer, con la declaración enlazada como fuente.</p>
+    <p class="nota" id="cf-fresco"></p>
+    <div class="kpis" id="k-conflictos"></div>
+    <div class="card">
+      <div class="controles">
+        <div class="campo" style="flex:1 1 240px"><label for="cf-buscar">Buscar</label>
+          <input type="search" id="cf-buscar" placeholder="Declarante, sociedad, RUT u organismo" autocomplete="off" style="width:100%"></div>
+        <div class="campo"><label for="cf-ver">Mostrar</label>
+          <select id="cf-ver"><option value="conflictos" selected>Su organismo le compra a la sociedad</option><option value="todos">Toda participación en proveedores del Estado</option></select></div>
+        <div class="campo"><label for="cf-sim">Coincidencia mínima</label>
+          <select id="cf-sim"><option value="0.6">60 %</option><option value="0.8" selected>80 %</option><option value="1">100 %</option></select></div>
+      </div>
+      <p class="nota" id="cf-nota"></p>
+      <div class="tabla" id="t-conflictos" style="max-height:640px"></div>
+    </div>
+  </section>
+
   <!-- METODOLOGÍA -->
   <section class="panel" id="p-metodologia" role="tabpanel" hidden>
     <div class="metodo">
@@ -541,7 +562,7 @@ const FICHA = (codigo) => "http://www.mercadopublico.cl/fichaLicitacion.html?idL
 const CORTO = ["oferente único", "descalificada", "sobre más barata", "sobre estimado", "plazo corto", "precio ref."];
 
 // ---------- pestañas (con #ancla)
-const TABS = ["resumen", "competencia", "precio", "concentracion", "proceso", "alertas", "vivo", "explorar", "compras", "proveedores", "vinculos", "metodologia"];
+const TABS = ["resumen", "competencia", "precio", "concentracion", "proceso", "alertas", "vivo", "explorar", "compras", "proveedores", "vinculos", "conflictos", "metodologia"];
 function mostrar(tab) {
   if (!TABS.includes(tab)) tab = "resumen";
   estado.tab = tab;
@@ -785,6 +806,7 @@ function render() {
   if (tab === "compras") renderCompras();
   if (tab === "proveedores") renderProveedores(X);
   if (tab === "vinculos") renderVinculos();
+  if (tab === "conflictos") renderConflictos();
 }
 
 // ---------- señales de alerta
@@ -1632,6 +1654,60 @@ function abrirGrupo(g) {
   $("vi-detalle").scrollIntoView({ behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth", block: "start" });
 }
 
+// ---------- posibles conflictos de interés (conflictos.json)
+let CONF = null, cargandoConf = null;
+function cargarConflictos() {
+  if (!cargandoConf) cargandoConf = fetch("conflictos.json")
+    .then((r) => { if (!r.ok) throw new Error("conflictos.json: HTTP " + r.status); return r.json(); })
+    .then((d) => { CONF = d; render(); })
+    .catch((e) => { cargandoConf = null; $("cf-nota").innerHTML = `<span class="aviso">No se pudieron cargar los cruces con InfoProbidad (${esc(e.message)}).</span>`; });
+  return cargandoConf;
+}
+function renderConflictos() {
+  if (!CONF) { $("cf-nota").textContent = "Cargando cruces con InfoProbidad…"; cargarConflictos(); return; }
+  const C = CONF, ver = $("cf-ver").value, sim = Number($("cf-sim").value);
+  $("cf-sim").disabled = ver !== "conflictos";
+  $("cf-fresco").textContent = `Generado ${C.generado.slice(0, 16).replace("T", " ")} UTC · ${num(C.participaciones)} participaciones en sociedades declaradas${C.fuente ? ` (${C.fuente})` : ""}.`;
+  const q = normal($("cf-buscar").value.trim()), qr = q.replace(/[.\s-]/g, "");
+  const coincide = (f) => !q || [f.declarante, f.sociedad, f.servicio, f.org_nombre, f.cargo].some((x) => normal(x || "").includes(q)) ||
+    (qr.length >= 4 && (f.rut_sociedad || "").replace(/[.\s-]/g, "").toLowerCase().includes(qr));
+  const conf = C.conflictos.filter((f) => f.similitud >= sim);
+  kpis("k-conflictos", [
+    ["Coincidencias con su organismo", num(conf.length), `con coincidencia de nombre ≥ ${Math.round(sim * 100)} %`],
+    ["Declarantes", num(new Set(conf.map((f) => f.declarante)).size)],
+    ["Monto comprado por su organismo", clp(conf.reduce((a, f) => a + f.oc_monto + f.lic_monto, 0)), "órdenes de compra 12 meses + licitaciones desde 2024"],
+    ["Participaciones en proveedores del Estado", num(C.participaciones_en_proveedores.length), "a cualquier organismo"],
+  ]);
+  const decl = (f) => f.url ? `<a href="${esc(f.url)}" target="_blank" rel="noopener">${esc(f.declarante || "—")}</a>` : esc(f.declarante || "—");
+  const pct = (f) => f.porcentaje == null || f.porcentaje === "" ? "—" : `${String(f.porcentaje).replace(".", ",")} %`;
+  const comunes = [
+    { k: "d", t: "Declarante", v: decl, html: 1, s: (f) => f.declarante || "", h: "Enlaza a la declaración en InfoProbidad" },
+    { k: "c", t: "Cargo", v: (f) => recorta(f.cargo || "—", 40), s: (f) => f.cargo || "" },
+    { k: "sv", t: "Servicio declarado", v: (f) => recorta(f.servicio || "—", 44), s: (f) => f.servicio || "" },
+    { k: "so", t: "Sociedad", v: (f) => `${esc(recorta(f.sociedad || "—", 40))}<br><code>${esc(f.rut_sociedad)}</code>`, html: 1, s: (f) => f.sociedad || "" },
+    { k: "p", t: "Participación", v: (f) => `${pct(f)}${f.titular && normal(f.titular) !== normal(f.declarante || "") ? `<br><span class="nota">titular: ${esc(recorta(f.titular, 30))}</span>` : ""}`, html: 1, n: 1, s: (f) => Number(f.porcentaje) || 0 },
+  ];
+  let r;
+  if (ver === "conflictos") {
+    r = tablaOrdenable("t-conflictos", [
+      ...comunes,
+      { k: "o", t: "Organismo comprador", v: (f) => recorta(f.org_nombre || f.org, 44), s: (f) => f.org_nombre || "" },
+      { k: "si", t: "Coincidencia", v: (f) => `${Math.round(f.similitud * 100)} %`, n: 1, s: (f) => f.similitud, h: "Palabras en común entre el servicio declarado y el organismo comprador, sobre las del nombre más corto" },
+      { k: "oc", t: "Órdenes de compra", v: (f) => f.oc_n ? `${num(f.oc_n)} · ${clp(f.oc_monto)}${f.oc_tipos.length ? `<br><span class="nota">${esc(f.oc_tipos.join(", "))}</span>` : ""}` : "—", html: 1, n: 1, s: (f) => f.oc_monto },
+      { k: "li", t: "Licitaciones", v: (f) => f.lic_n ? `${num(f.lic_n)} · ${clp(f.lic_monto)}` : "—", html: 1, n: 1, s: (f) => f.lic_monto },
+      { k: "t", t: "Total", v: (f) => clp(f.oc_monto + f.lic_monto), n: 1, s: (f) => f.oc_monto + f.lic_monto },
+    ], conf.filter(coincide), "conflictos", { k: "t", dir: "desc" });
+  } else {
+    r = tablaOrdenable("t-conflictos", [
+      ...comunes,
+      { k: "oc", t: "Órdenes de compra (12 meses)", v: (f) => clp(f.monto_oc), n: 1, s: (f) => f.monto_oc },
+      { k: "li", t: "Licitaciones (desde 2024)", v: (f) => clp(f.monto_lic), n: 1, s: (f) => f.monto_lic },
+      { k: "t", t: "Total", v: (f) => clp(f.monto_oc + f.monto_lic), n: 1, s: (f) => f.monto_oc + f.monto_lic },
+    ], C.participaciones_en_proveedores.filter(coincide), "conflictos-todos", { k: "t", dir: "desc" });
+  }
+  $("cf-nota").textContent = `${num(r.total)} filas${r.total > r.mostradas ? ` · se muestran ${num(r.mostradas)}` : ""}. ${ver === "conflictos" ? "Revise la coincidencia: con menos de 100 % el organismo puede ser otro con nombre parecido." : "Ser dueño de un proveedor del Estado no es irregular en sí: la vista anterior muestra cuando el comprador es su propio organismo."}`;
+}
+
 // ---------- carga
 // Los binarios se publican en base64 (.b64.txt): la plataforma no sirve archivos .bin.
 async function bin64(f) {
@@ -1764,6 +1840,9 @@ async function iniciar() {
     $("vi-buscar").addEventListener("input", () => { clearTimeout(tBuscarVi); tBuscarVi = setTimeout(render, 200); });
     $("vi-ver").addEventListener("change", render);
     $("vid-cerrar").addEventListener("click", () => { $("vi-detalle").hidden = true; });
+    let tBuscarCf;
+    $("cf-buscar").addEventListener("input", () => { clearTimeout(tBuscarCf); tBuscarCf = setTimeout(render, 200); });
+    for (const id of ["cf-ver", "cf-sim"]) $(id).addEventListener("change", render);
     $("cd-cerrar").addEventListener("click", () => { $("c-detalle").hidden = true; });
     await aplicar();
     mostrar((location.hash || "#resumen").slice(1));

@@ -213,9 +213,9 @@ alcanzables desde el entorno y no cubren a los dueños reales de sociedades cerr
 ranking de personas con nombre ligado a «sobrecostos» a partir de señales heurísticas puede
 dañar a gente sin fundamento. En su lugar:
 
-1. **Conflictos de interés de funcionarios** (pendiente): cruzar las declaraciones de patrimonio
-   de InfoProbidad con los proveedores de su propio organismo. Requiere habilitar
-   `infoprobidad.cl` en la red del entorno.
+1. **Conflictos de interés de funcionarios** (pestaña «Conflictos», ver abajo): cruzar las
+   participaciones en sociedades declaradas en InfoProbidad con los proveedores de su propio
+   organismo.
 2. **Grupos de proveedores vinculados** (`src/observatorio/vinculos.py`, `make vinculos`): RUT
    distintos que comparten dirección (calle, número y comuna) o persona de contacto, según el
    detalle de una orden de compra en la API. Solo se consultan candidatos por comportamiento en
@@ -223,6 +223,24 @@ dañar a gente sin fundamento. En su lugar:
    (5+ juntos, la mitad o más solos) o acompañantes (2.972 proveedores, ~2,5 h de API). Un
    valor compartido por más de 6 proveedores se descarta (oficina o contador común). La web
    muestra el tipo de vínculo y cuánto compitieron entre sí, no direcciones ni contactos.
+
+## Posibles conflictos de interés (pestaña «Conflictos»)
+
+`src/observatorio/conflictos.py`, `make conflictos PARTICIPACIONES=ruta.json`. Entrada: las
+participaciones en sociedades (acciones y derechos) de la última declaración de intereses y
+patrimonio de cada declarante en InfoProbidad (Ley 20.880), extraídas a un JSON con RUT y nombre
+de la sociedad, porcentaje, titular, declarante, cargo, servicio, fecha y enlace a la declaración.
+
+- **Proveedor del Estado**: el RUT de la sociedad aparece en órdenes de compra de los últimos 12
+  meses (todos los tipos, descarga masiva) o en licitaciones adjudicadas desde 2024.
+- **Su propio organismo**: el servicio declarado es texto libre y se empareja con el nombre del
+  organismo comprador por palabras en común sobre las del nombre más corto, ignorando las que no
+  distinguen organismos («Ilustre», «Servicio», «Nacional», «Ministerio», artículos…). Bajo
+  60 % no se considera; la web filtra por defecto desde 80 %.
+- Se muestra el enlace a la declaración como fuente. Una coincidencia no prueba un conflicto: el
+  funcionario puede haberse abstenido o no tener injerencia en la compra, y un cargo en un
+  servicio grande (un ministerio, un servicio de salud) rara vez decide compras de todo el
+  organismo.
 
 ## Licitaciones en curso (pestaña «En curso» de la versión web)
 
