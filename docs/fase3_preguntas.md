@@ -223,6 +223,9 @@ dañar a gente sin fundamento. En su lugar:
    (5+ juntos, la mitad o más solos) o acompañantes (2.972 proveedores, ~2,5 h de API). Un
    valor compartido por más de 6 proveedores se descarta (oficina o contador común). La web
    muestra el tipo de vínculo y cuánto compitieron entre sí, no direcciones ni contactos.
+   Resultado (octubre 2026): 2.643 consultados (los demás no tienen órdenes de compra en 12
+   meses), 57 grupos, 14 de ellos ofertaron juntos. El caso más marcado: dos proveedores con la
+   misma dirección que coincidieron en 854 licitaciones, 68 con ofertas idénticas no redondas.
 
 ## Posibles conflictos de interés (pestaña «Conflictos»)
 
