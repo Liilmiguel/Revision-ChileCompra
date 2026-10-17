@@ -237,13 +237,21 @@ de la sociedad, porcentaje, titular, declarante, cargo, servicio, fecha y enlace
 - **Proveedor del Estado**: el RUT de la sociedad aparece en órdenes de compra de los últimos 12
   meses (todos los tipos, descarga masiva) o en licitaciones adjudicadas desde 2024.
 - **Su propio organismo**: el servicio declarado es texto libre y se empareja con el nombre del
-  organismo comprador por palabras en común sobre las del nombre más corto, ignorando las que no
-  distinguen organismos («Ilustre», «Servicio», «Nacional», «Ministerio», artículos…). Bajo
-  60 % no se considera; la web filtra por defecto desde 80 %.
+  organismo comprador por palabras en común sobre las del nombre más largo, ignorando solo
+  artículos, «Ilustre» y «Chile». Con el nombre más corto como base, «Gobierno Regional de
+  O'Higgins» calzaba con «Universidad de O'Higgins» y «Poder Judicial» con la Corporación
+  Administrativa del Poder Judicial. Bajo 60 % no se considera; la web filtra desde 80 %.
+- **Sociedades abiertas**: una sociedad declarada por 3 o más personas se marca y se oculta por
+  defecto. Son acciones de LATAM, bancos, Entel, Copec, sanitarias: sin injerencia en la compra.
 - Se muestra el enlace a la declaración como fuente. Una coincidencia no prueba un conflicto: el
   funcionario puede haberse abstenido o no tener injerencia en la compra, y un cargo en un
   servicio grande (un ministerio, un servicio de salud) rara vez decide compras de todo el
   organismo.
+- Resultado con cobertura parcial (7.302 de 20.076 declarantes, los que declararon desde
+  marzo de 2026): 3.868 participaciones, 313 en proveedores del Estado (87 sin contar
+  sociedades abiertas) y 41 coincidencias con su propio organismo, de las cuales 40 son
+  acciones de sociedades abiertas. Queda un caso: un concejal con participación en una sociedad
+  que se adjudicó dos licitaciones de su municipalidad.
 
 ## Licitaciones en curso (pestaña «En curso» de la versión web)
 

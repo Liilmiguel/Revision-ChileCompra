@@ -12,6 +12,10 @@ El organismo del declarante viene como texto libre ("I. Municipalidad de Puente 
 empareja con los nombres de organismos compradores por palabras en común. Cada fila trae la
 calidad del emparejamiento; las dudosas se muestran aparte para revisión manual.
 
+Las acciones de sociedades abiertas (LATAM, Copec, Entel…) aparecen en decenas de
+declaraciones y no dan injerencia: una sociedad declarada por MAX_DECLARANTES o más personas
+se marca `abierta` y la web la oculta por defecto.
+
 Una coincidencia no es un conflicto probado: el funcionario puede haberse abstenido o no tener
 injerencia en la compra. Es la pregunta a hacer.
 """
@@ -30,12 +34,12 @@ from observatorio.precios import normalizar
 
 log = logging.getLogger(__name__)
 
-# Palabras que no distinguen organismos entre sí.
-VACIAS = {
-    "I", "IL", "ILUSTRE", "DE", "DEL", "LA", "LAS", "LOS", "EL", "Y", "EN", "PARA", "POR", "A", "AL",
-    "SERVICIO", "NACIONAL", "REGIONAL", "DIRECCION", "SUBSECRETARIA", "MINISTERIO", "GOBIERNO", "CHILE",
-}  # fmt: skip
+# Palabras que no distinguen organismos entre sí. «Servicio», «Gobierno», «Subsecretaría» sí
+# distinguen (Gobierno Regional de O'Higgins no es la Universidad de O'Higgins).
+VACIAS = {"I", "IL", "ILUSTRE", "DE", "DEL", "LA", "LAS", "LOS", "EL", "Y", "EN", "PARA", "POR", "A", "AL", "CHILE"}
+ABREVIATURAS = {"CORP": "CORPORACION", "MUNIC": "MUNICIPALIDAD", "MINIST": "MINISTERIO", "SERV": "SERVICIO"}
 MIN_SIMILITUD = 0.6
+MAX_DECLARANTES = 3
 
 
 def normalizar_rut(rut: str | None) -> str | None:
@@ -48,16 +52,18 @@ def normalizar_rut(rut: str | None) -> str | None:
 
 
 def palabras(nombre: str | None) -> set[str]:
-    return {w for w in normalizar(nombre).split() if w not in VACIAS and len(w) > 1}
+    ws = (ABREVIATURAS.get(w, w) for w in normalizar(nombre).split())
+    return {w for w in ws if w not in VACIAS and len(w) > 1}
 
 
 def similitud(a: str | None, b: str | None) -> float:
-    """Palabras en común sobre las del nombre más corto (tolera "I. Municipalidad de X" contra
-    "Municipalidad de X" y nombres con sufijos como el hospital de un servicio de salud)."""
+    """Palabras en común sobre las del nombre más largo: "I. Municipalidad de X" calza con
+    "Municipalidad de X", pero "Poder Judicial" no con "Corporación Administrativa del Poder
+    Judicial" (quien declara en un organismo grande rara vez decide las compras de otro)."""
     pa, pb = palabras(a), palabras(b)
     if not pa or not pb:
         return 0.0
-    return len(pa & pb) / min(len(pa), len(pb))
+    return len(pa & pb) / max(len(pa), len(pb))
 
 
 def emparejar_organismo(servicio: str | None, organismos: dict[str, str]) -> tuple[str | None, float]:
@@ -118,6 +124,10 @@ def cruzar(participaciones: list[dict], oc: dict, lic: dict, orgs: dict[str, str
     for (org, rut), v in lic.items():
         por_rut_lic[rut].append((org, v))
     cache_org: dict[str, tuple] = {}
+    declarantes: dict[str, set] = defaultdict(set)
+    for f in participaciones:
+        if rut := normalizar_rut(f.get("rut_sociedad")):
+            declarantes[rut].add(f.get("declarante_nombre"))
     conflictos, en_proveedores = [], []
     for f in participaciones:
         rut = normalizar_rut(f.get("rut_sociedad"))
@@ -136,6 +146,7 @@ def cruzar(participaciones: list[dict], oc: dict, lic: dict, orgs: dict[str, str
             "porcentaje": f.get("porcentaje"),
             "fecha_declaracion": f.get("fecha_declaracion"),
             "url": f.get("url_declaracion"),
+            "abierta": len(declarantes[rut]) >= MAX_DECLARANTES,
         }
         en_proveedores.append({**base, "monto_oc": round(total_oc), "monto_lic": round(total_lic)})
         servicio = f.get("servicio") or ""
@@ -192,7 +203,8 @@ def generar(conn, participaciones_path: Path, out_dir: Path, raw_dir: Path) -> d
         "generado": datetime.now(UTC).isoformat(timespec="minutes"),
         "fuente": datos.get("fuente") if isinstance(datos, dict) else None,
         "participaciones": len(filas),
-        "constantes": {"MIN_SIMILITUD": MIN_SIMILITUD},
+        "cobertura": datos.get("cobertura") if isinstance(datos, dict) else None,
+        "constantes": {"MIN_SIMILITUD": MIN_SIMILITUD, "MAX_DECLARANTES": MAX_DECLARANTES},
         **cruzar(filas, oc, lic, orgs, provs),
     }
     (out_dir / "conflictos.json").write_text(json.dumps(resultado, ensure_ascii=False, separators=(",", ":")))
