@@ -247,11 +247,13 @@ de la sociedad, porcentaje, titular, declarante, cargo, servicio, fecha y enlace
   funcionario puede haberse abstenido o no tener injerencia en la compra, y un cargo en un
   servicio grande (un ministerio, un servicio de salud) rara vez decide compras de todo el
   organismo.
-- Resultado con cobertura parcial (7.302 de 20.076 declarantes, los que declararon desde
-  marzo de 2026): 3.868 participaciones, 313 en proveedores del Estado (87 sin contar
-  sociedades abiertas) y 41 coincidencias con su propio organismo, de las cuales 40 son
-  acciones de sociedades abiertas. Queda un caso: un concejal con participación en una sociedad
-  que se adjudicó dos licitaciones de su municipalidad.
+- Resultado (índice de InfoProbidad del 16-10-2026, 20.076 declarantes, última declaración de
+  cada uno): 9.187 participaciones con RUT, 683 en proveedores del Estado (213 sin contar
+  sociedades abiertas) y 83 coincidencias con su propio organismo, de las cuales 71 son
+  acciones de sociedades abiertas. Quedan 12 filas (10 declarantes), todas en municipios o
+  gobiernos regionales; la mayor, un concejal de Copiapó accionista de una clínica a la que la
+  municipalidad le compró unos $240 millones. Los declarantes se agrupan por nombre (el índice
+  no trae su RUT).
 
 ## Licitaciones en curso (pestaña «En curso» de la versión web)
 
