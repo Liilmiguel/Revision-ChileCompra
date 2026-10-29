@@ -47,11 +47,23 @@ def main(argv: list[str] | None = None) -> None:
     p_vinc = sub.add_parser("vinculos", help="grupos de proveedores que comparten dirección o contacto")
     p_vinc.add_argument("--max-consultas", type=int, default=6000, help="consultas nuevas a la API (~2,5 s c/u)")
 
+    p_ip = sub.add_parser("infoprobidad", help="participaciones en sociedades desde datos.cplt.cl")
+    p_ip.add_argument(
+        "--fichas", type=Path, help="extracción previa de infoprobidad.cl, para enlazar las declaraciones"
+    )
+
     p_conf = sub.add_parser("conflictos", help="participaciones de funcionarios (InfoProbidad) en proveedores")
     p_conf.add_argument("participaciones", type=Path, help="JSON de participaciones extraído de InfoProbidad")
     p_conf.add_argument("--lic", type=Path, help="lic_org_rut.json de una corrida con base: no usa la base de datos")
 
     args = parser.parse_args(argv)
+    if args.command == "infoprobidad":
+        from observatorio import infoprobidad
+
+        logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
+        logging.getLogger("httpx").setLevel(logging.WARNING)
+        _print({k: str(v) for k, v in infoprobidad.generar(config.ROOT / "data" / "infoprobidad", args.fichas).items()})
+        return
     if args.command == "conflictos" and args.lic:
         from observatorio import conflictos
 

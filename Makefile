@@ -2,7 +2,7 @@ FROM ?= 2025-1
 TO ?=
 DAY ?=
 
-.PHONY: up down init backfill incremental status dbt dbt-full snapshot analysis dashboard vivo compras precios vinculos conflictos web test lint
+.PHONY: up down init backfill incremental status dbt dbt-full snapshot analysis dashboard vivo compras precios vinculos infoprobidad conflictos web test lint
 
 up:  ## levanta PostgreSQL y espera a que acepte conexiones
 	docker compose up -d --wait db
@@ -48,6 +48,9 @@ precios:  ## precios unitarios de órdenes de compra (12 meses) → data/compras
 
 vinculos:  ## grupos de proveedores vinculados (requiere la base y el ticket; ~2,5 h la primera vez)
 	uv run observatorio vinculos
+
+infoprobidad:  ## participaciones en sociedades desde datos.cplt.cl → data/infoprobidad/participaciones.json
+	uv run observatorio infoprobidad $(if $(FICHAS),--fichas $(FICHAS))
 
 conflictos:  ## cruza participaciones de InfoProbidad (PARTICIPACIONES=ruta.json) con proveedores (requiere la base)
 	uv run observatorio conflictos $(PARTICIPACIONES)

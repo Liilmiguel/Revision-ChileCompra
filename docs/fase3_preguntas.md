@@ -229,7 +229,13 @@ dañar a gente sin fundamento. En su lugar:
 
 ## Posibles conflictos de interés (pestaña «Conflictos»)
 
-`src/observatorio/conflictos.py`, `make conflictos PARTICIPACIONES=ruta.json`. Con la base, la corrida guarda
+`src/observatorio/conflictos.py`, `make conflictos PARTICIPACIONES=ruta.json`. Las participaciones salen de
+`observatorio infoprobidad` (`src/observatorio/infoprobidad.py`), que baja los catálogos de datos
+abiertos del CPLT (`datos.cplt.cl`: `csvdeclaraciones` y `csvaccionDerecho`, ~65 MB) y toma la
+última declaración de cada declarante por su URI. El catálogo no trae el enlace a la ficha ni las
+participaciones del cónyuge; se completan con una extracción de las fichas de infoprobidad.cl
+(`--fichas`) cuando coinciden nombre y fecha. Con el catálogo del 23-10-2026: 18.389
+declarantes, 8.529 participaciones, los mismos 12 casos que con la extracción de fichas. Con la base, la corrida guarda
 las licitaciones por organismo y proveedor en `data/compras/lic_org_rut.json`; con `--lic` ese
 archivo reemplaza a la base, y así la tarea programada (que no tiene la base) rehace el cruce
 cada mañana con las órdenes de compra del día. «Vínculos» no está en la tarea: necesita el caché
