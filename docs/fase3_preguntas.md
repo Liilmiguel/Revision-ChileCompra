@@ -229,7 +229,11 @@ dañar a gente sin fundamento. En su lugar:
 
 ## Posibles conflictos de interés (pestaña «Conflictos»)
 
-`src/observatorio/conflictos.py`, `make conflictos PARTICIPACIONES=ruta.json`. Entrada: las
+`src/observatorio/conflictos.py`, `make conflictos PARTICIPACIONES=ruta.json`. Con la base, la corrida guarda
+las licitaciones por organismo y proveedor en `data/compras/lic_org_rut.json`; con `--lic` ese
+archivo reemplaza a la base, y así la tarea programada (que no tiene la base) rehace el cruce
+cada mañana con las órdenes de compra del día. «Vínculos» no está en la tarea: necesita el caché
+de direcciones y contactos, que no se publica. Entrada: las
 participaciones en sociedades (acciones y derechos) de la última declaración de intereses y
 patrimonio de cada declarante en InfoProbidad (Ley 20.880), extraídas a un JSON con RUT y nombre
 de la sociedad, porcentaje, titular, declarante, cargo, servicio, fecha y enlace a la declaración.

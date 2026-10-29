@@ -49,8 +49,17 @@ def main(argv: list[str] | None = None) -> None:
 
     p_conf = sub.add_parser("conflictos", help="participaciones de funcionarios (InfoProbidad) en proveedores")
     p_conf.add_argument("participaciones", type=Path, help="JSON de participaciones extraído de InfoProbidad")
+    p_conf.add_argument("--lic", type=Path, help="lic_org_rut.json de una corrida con base: no usa la base de datos")
 
     args = parser.parse_args(argv)
+    if args.command == "conflictos" and args.lic:
+        from observatorio import conflictos
+
+        logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
+        out = config.ROOT / "data" / "compras"
+        r = conflictos.generar(None, args.participaciones, out, config.raw_dir(), args.lic)
+        _print({k: str(v) for k, v in r.items()})
+        return
     if args.command == "precios":
         from observatorio import precios
 

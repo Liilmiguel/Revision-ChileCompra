@@ -177,28 +177,45 @@ def cruzar(participaciones: list[dict], oc: dict, lic: dict, orgs: dict[str, str
     return {"conflictos": conflictos, "participaciones_en_proveedores": en_proveedores}
 
 
-def generar(conn, participaciones_path: Path, out_dir: Path, raw_dir: Path) -> dict:
+SQL_LICITACIONES = """
+select l.codigo_organismo, max(l.nombre_organismo), p.rut_proveedor, count(distinct a.codigo_externo),
+       sum(a.monto_adjudicado)
+from marts.fct_adjudicacion a
+join marts.fct_licitacion l using (codigo_externo)
+join marts.dim_proveedor p using (codigo_proveedor)
+where a.moneda = 'CLP' and l.fecha_publicacion >= '2024-01-01'
+group by 1, 3
+"""
+
+
+def licitaciones_por_organismo(conn) -> dict:
+    """Licitaciones adjudicadas desde 2024 por (organismo, RUT del proveedor), en pesos:
+    {"orgs": {org: nombre}, "filas": [[org, rut, n, monto], ...]}. Se guarda en lic_org_rut.json
+    para correr sin la base."""
+    orgs, filas = {}, []
+    for org, org_nombre, rut, n, monto in conn.execute(SQL_LICITACIONES):
+        if r := normalizar_rut(rut):
+            orgs.setdefault(org, org_nombre)
+            filas.append([org, r, n, round(float(monto or 0))])
+    return {"orgs": orgs, "filas": filas}
+
+
+def generar(conn, participaciones_path: Path, out_dir: Path, raw_dir: Path, lic_path: Path | None = None) -> dict:
+    """Con `conn` lee las licitaciones de la base y las guarda en `lic_path`; sin `conn` las lee de
+    `lic_path` (la tarea programada no tiene la base)."""
+    lic_path = lic_path or out_dir / "lic_org_rut.json"
     datos = json.loads(participaciones_path.read_text())
     filas = datos["filas"] if isinstance(datos, dict) else datos
     zips = [raw_dir / f"oc_{m}.zip" for m in compras.meses_cerrados(date.today(), 12)]
     oc, orgs, provs = compras_por_organismo([z for z in zips if z.exists()])
-    # Licitaciones adjudicadas desde 2024 por (organismo, RUT del proveedor), en pesos.
-    lic: dict[tuple, list] = {}
-    for org, org_nombre, rut, n, monto in conn.execute(
-        """
-        select l.codigo_organismo, max(l.nombre_organismo), p.rut_proveedor, count(distinct a.codigo_externo),
-               sum(a.monto_adjudicado)
-        from marts.fct_adjudicacion a
-        join marts.fct_licitacion l using (codigo_externo)
-        join marts.dim_proveedor p using (codigo_proveedor)
-        where a.moneda = 'CLP' and l.fecha_publicacion >= '2024-01-01'
-        group by 1, 3
-        """
-    ):
-        r = normalizar_rut(rut)
-        if r:
-            lic[(org, r)] = [n, float(monto or 0)]
-            orgs.setdefault(org, org_nombre)
+    if conn is not None:
+        d_lic = licitaciones_por_organismo(conn)
+        lic_path.write_text(json.dumps(d_lic, ensure_ascii=False, separators=(",", ":")))
+    else:
+        d_lic = json.loads(lic_path.read_text())
+    lic = {(org, rut): [n, float(monto)] for org, rut, n, monto in d_lic["filas"]}
+    for org, nombre in d_lic["orgs"].items():
+        orgs.setdefault(org, nombre)
     resultado = {
         "generado": datetime.now(UTC).isoformat(timespec="minutes"),
         "fuente": datos.get("fuente") if isinstance(datos, dict) else None,
