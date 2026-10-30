@@ -61,3 +61,21 @@ def test_linea_de_cantidad_1_a_100_veces_la_mediana_es_contrato_sin_precio_unita
     r = precios.analizar(lineas, ocs)
     assert r["sobre_mediana"] == [] and r["mismo_proveedor"] == []
     assert [x[0] for x in r["sin_precio_unitario"]] == ["contrato"]
+
+
+def test_proveedor_unico_desmentido_por_otros_que_venden_el_mismo_bien():
+    k = ("51171910", "CAJA", "TIAMAZOL 10 MG")
+    unico = "Si sólo existe un proveedor del bien o servicio. (Monto igual o inferior a 1.000 utm.)"
+    ocs = {
+        "td": {**oc("TD", prov="PX", monto=3e6), "causal": unico},
+        "l1": oc("SE", prov="P1"),
+        "l2": oc("AG", prov="P2"),
+    }
+    lineas = [(k, 300.0, 100, "td"), (k, 100.0, 50, "l1"), (k, 120.0, 50, "l2")]
+    (fila,) = precios.analizar(lineas, ocs)["unico_con_competencia"]
+    d = dict(zip(precios.analizar(lineas, ocs)["campos_unico"], fila, strict=True))
+    assert d["oc"] == "td" and d["n_otros"] == 2 and d["mediana_otros"] == 110 and set(d["otros"]) == {"P1", "P2"}
+    # Con un solo competidor, o en combustibles, no se marca.
+    assert precios.analizar(lineas[:2], {k2: v for k2, v in ocs.items() if k2 != "l2"})["unico_con_competencia"] == []
+    kc = ("15101505", "LITRO", "DIESEL")
+    assert precios.analizar([(kc, *x[1:]) for x in lineas], ocs)["unico_con_competencia"] == []

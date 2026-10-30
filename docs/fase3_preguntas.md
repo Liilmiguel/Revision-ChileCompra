@@ -124,16 +124,49 @@ canceladas.
 - **Acumulación bajo el tope**: entre 98 % y 100 % del tope hay 7.591 compras, más del doble
   que en cualquier tramo de 2 % entre 50 % y 90 % (~3.000). Los montos se ajustan para no
   pasar el tope. Por organismo se compara su proporción en 90–100 % con la nacional (3,2 %).
-- **Fraccionamiento**: 3+ Compras Ágiles del mismo organismo al mismo proveedor y rubro en
-  30 días que juntas superan el tope. Las órdenes marcadas consecutivas forman un episodio:
-  6.534 episodios, 52.284 órdenes, $147 mil millones. En hospitales suelen ser compras
-  recurrentes de insumos que debieron ir por licitación de suministro o convenio marco
-  (p. ej. 354 Compras Ágiles de la Universidad de Chile a un mismo proveedor de insumos
-  médicos en un año).
-- **Trato directo recurrente**: 5+ del mismo organismo al mismo proveedor (5.261 pares).
-- **Trato directo de monto alto**: sobre 1.000 UTM (2.533), para revisar que la causal
-  (proveedor único, emergencia) calce con lo comprado. La causal más usada es «emergencia,
-  urgencia o imprevisto» (33.585 órdenes).
+- **Cómo se evitan las falsas alarmas.** La primera versión marcaba 6.534 episodios de
+  «fraccionamiento». Revisados contra el detalle de las órdenes, el 21 % juntaba unidades de
+  compra distintas de un mismo organismo (hospitales de un servicio de salud), el 20 % no
+  compartía ningún producto, y muchos eran consumos por cirugía o exámenes por paciente
+  («CONSUMO PABELLON 210552», «210553»…), que se repiten legítimamente. Cada alerta exige
+  ahora más de una coincidencia y se probó con casos reales (`tests/test_compras.py` incluye
+  los que no deben marcarse).
+
+**Alertas** (más de una coincidencia; oct. 2025 – sep. 2026):
+
+- **Compra dividida** (1.116 casos, $15,4 mil millones): 2+ Compras Ágiles de la misma unidad
+  de compra al mismo proveedor, con la misma especificación de un bien, en 7 días, que juntas
+  superan el tope; 2 de cada 3 son por el mismo monto. Ej.: dos órdenes de albúmina humana
+  iguales el mismo día, o cuatro packs de vitrectomía el mismo día. Se excluyen servicios
+  (por código de producto y por el texto de la especificación) y especificaciones genéricas.
+- **Proveedor «único» con competencia** (39 órdenes, $234 millones; en `precios.py`): trato
+  directo por «solo existe un proveedor» de un bien que en el año vendieron 2+ proveedores
+  distintos por licitación, convenio marco o Compra Ágil (mismo código ONU, unidad y
+  especificación). Sin combustibles: en una comuna aislada la única bencinera sí es la única.
+  Ej.: $60 millones en trofeos (9 proveedores más los venden); dasatinib a $10.700 la unidad
+  contra una mediana de $4.850 de otros tres laboratorios.
+- **Emergencia repetida** (253 casos, $128 mil millones): 3+ tratos directos por emergencia
+  del mismo organismo al mismo proveedor por el mismo bien a lo largo de 180+ días. Solo
+  bienes: turnos médicos, ventilación o traslados de pacientes pueden ser urgentes cada vez.
+  Muchos son implantes o insumos que debieron ir a un convenio de suministro.
+- **Tratos directos encadenados** (52 casos): tratos directos por causales de monto menor
+  (bajo 100 o 30 UTM) de la misma unidad, proveedor y bien que en 30 días suman más de
+  100 UTM con IVA.
+- **Organismos bajo el tope**: 100+ Compras Ágiles, el doble de la proporción nacional entre
+  90 % y 100 % del tope (3,2 %) y un desvío de 4+ errores estándar (60 organismos). Con
+  menos compras, una proporción alta es azar.
+
+**Para revisar con contexto** (no son alertas por sí solas):
+
+- **Compras repetidas sobre el tope** (2.703 casos): 3+ Compras Ágiles de la misma unidad,
+  proveedor y código de producto en 30 días que superan el tope. Suelen ser necesidades
+  continuas (reactivos, insumos) que debieron licitarse como suministro, no compras partidas
+  a propósito.
+- **Trato directo de monto alto**: sobre 1.000 UTM (2.533); la web marca los que además
+  tienen una alerta. La causal más usada es «emergencia, urgencia o imprevisto» (33.585
+  órdenes).
+- Se eliminó «trato directo recurrente» (5+ del mismo organismo al mismo proveedor): la
+  mayoría eran servicios continuos o proveedores únicos legítimos.
 
 ## Pestaña «Proveedores»: puntaje por proveedor
 
@@ -142,7 +175,7 @@ Compras Ágiles y tratos directos de los últimos 12 meses (`proveedores_oc.json
 `observatorio compras`): 80.514 proveedores, 24.114 con 3+ licitaciones o 10+ órdenes.
 Métricas: monto total y por vía, tasa de éxito, parte del monto sin competencia, parte del
 monto pagada **sobre la oferta aceptada más barata** y parte que **excede lo estimado**
-(ambas ponderadas por monto), Compras Ágiles en fraccionamiento y bajo el tope, parte por
+(ambas ponderadas por monto), Compras Ágiles en compras divididas y bajo el tope, parte por
 trato directo y por emergencia, captura y acompañantes.
 
 **Puntaje (0–100)** (`proveedoresScore` en `dashboard/web/metricas.js`): suma de diez
@@ -158,7 +191,7 @@ componentes 0–1 con pesos fijos que suman 100; sin datos, el componente aporta
 | acompañantes | 5 | tiene alguno |
 | parte recibida por trato directo × monto | 15 | 100 % y ≥ 1.000 UTM en tratos directos |
 | tratos directos por emergencia × monto | 5 | 100 % y ≥ 1.000 UTM |
-| Compras Ágiles en fraccionamiento (desde 5) | 10 | 100 % |
+| Compras Ágiles en compras divididas (desde 5) | 10 | 100 % |
 | Compras Ágiles entre 90 % y 100 % del tope (desde 10) | 5 | ≥ 15 % (nacional ~3 %) |
 | exceso de precio unitario sobre la mediana / compras directas | 10 | ≥ 10 % |
 

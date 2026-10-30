@@ -36,7 +36,7 @@ from pathlib import Path
 
 import httpx
 
-from observatorio import bulk, compras
+from observatorio import bulk
 
 log = logging.getLogger(__name__)
 
@@ -67,6 +67,7 @@ GENERICAS = re.compile(
     r"|ADJUNTO|CONTINUIDAD|INSUMOS|MATERIALES)\b"
 )
 RAZON_MAX = 50
+UNICO_MIN_OTROS = 2  # proveedores distintos que vendieron el mismo bien sin trato directo
 
 
 def normalizar(texto: str | None) -> str:
@@ -121,6 +122,7 @@ def leer_lineas(zip_path: Path, lineas: list, ocs: dict) -> None:
                 "prov_nombre": r.get("NombreProveedor"),
                 "prov_rut": r.get("RutSucursal"),
                 "monto": _num(r.get("MontoTotalOC_PesosChilenos")) or 0.0,
+                "causal": r.get("ProcedenciaOC") if tipo == "TD" else None,
                 "opaca": True,  # se desmiente con cualquier línea con precio unitario verificable
                 "bien": False,  # en servicios una línea "global" es normal: solo se marcan bienes
                 "producto": None,
@@ -142,12 +144,16 @@ def leer_lineas(zip_path: Path, lineas: list, ocs: dict) -> None:
         lineas.append((k, p, q, c))
 
 
-def analizar(lineas: list, ocs: dict, utm: float = compras.UTM_CLP) -> dict:
+def analizar(lineas: list, ocs: dict, utm: float | None = None) -> dict:
+    from observatorio import compras  # compras importa de este módulo
+
+    utm = utm or compras.UTM_CLP
     grupos: dict[tuple, list] = defaultdict(list)
     for k, p, q, c in lineas:
         grupos[k].append((p, q, c))
 
     sobre, mismo = [], []
+    unico: dict[str, list] = {}
     exceso_prov: dict[str, list] = defaultdict(lambda: [0.0, 0])
     comparables = 0
     for k, xs in grupos.items():
@@ -176,6 +182,26 @@ def analizar(lineas: list, ocs: dict, utm: float = compras.UTM_CLP) -> dict:
                 e = exceso_prov[oc["prov"]]
                 e[0] += exceso
                 e[1] += 1
+        # «Proveedor único» desmentido: el mismo bien lo vendieron otros proveedores por
+        # licitación, convenio marco o Compra Ágil. Sin combustibles (segmento 15): en una
+        # comuna aislada la única bencinera es de verdad la única.
+        if not es_servicio(k[0]) and not k[0].startswith("15"):
+            competencia: dict[str, list] = defaultdict(list)
+            for p, _, c in xs:
+                if ocs[c]["tipo"] != "TD":
+                    competencia[ocs[c]["prov"]].append(p)
+            for p, q, c in xs:
+                oc = ocs[c]
+                if oc["tipo"] != "TD" or "un proveedor" not in (oc.get("causal") or "") or oc["monto"] < EXCESO_MIN:
+                    continue
+                otros = {v: ps for v, ps in competencia.items() if v != oc["prov"]}
+                if len(otros) < UNICO_MIN_OTROS:
+                    continue
+                med_otros = statistics.median(x for ps in otros.values() for x in ps)
+                fila = [c, oc["fecha"], oc["org"], oc["prov"], k[2], k[0], k[1], q, round(p), round(med_otros),
+                        len(otros), sorted(otros, key=lambda v: -len(otros[v]))[:3], round(oc["monto"])]  # fmt: skip
+                if c not in unico or p * q > unico[c][7] * unico[c][8]:
+                    unico[c] = fila
         # Mismo proveedor, mismo producto, precios distintos (compras directas).
         por_prov: dict[str, list] = defaultdict(list)
         for p, q, c in xs:
@@ -204,6 +230,7 @@ def analizar(lineas: list, ocs: dict, utm: float = compras.UTM_CLP) -> dict:
         ),
         key=lambda x: -x[5],
     )
+    unicos = sorted(unico.values(), key=lambda x: -x[-1])
     sobre.sort(key=lambda x: -x[-1])
     mismo.sort(key=lambda x: -x[8])
     return {
@@ -217,6 +244,8 @@ def analizar(lineas: list, ocs: dict, utm: float = compras.UTM_CLP) -> dict:
             "mismo_exceso": round(sum(x[8] for x in mismo)),
             "opacas_n": len(opacas),
             "opacas_monto": sum(x[5] for x in opacas),
+            "unico_n": len(unicos),
+            "unico_monto": sum(x[-1] for x in unicos),
         },
         "campos_sobre": [
             "oc",
@@ -251,12 +280,30 @@ def analizar(lineas: list, ocs: dict, utm: float = compras.UTM_CLP) -> dict:
         "mismo_proveedor": mismo[:MAX_LISTA],
         "campos_opacas": ["oc", "fecha", "tipo", "org", "prov", "monto", "producto"],
         "sin_precio_unitario": opacas[:MAX_LISTA],
+        "campos_unico": [
+            "oc",
+            "fecha",
+            "org",
+            "prov",
+            "producto",
+            "onu",
+            "unidad",
+            "cantidad",
+            "precio",
+            "mediana_otros",
+            "n_otros",
+            "otros",
+            "monto",
+        ],  # fmt: skip
+        "unico_con_competencia": unicos[:MAX_LISTA],
         # Exceso sobre la mediana por proveedor (todas, no solo las listadas): pestaña Proveedores.
         "exceso_proveedor": {p: [round(e), n] for p, (e, n) in exceso_prov.items()},
     }
 
 
 def generar(out_dir: Path, raw_dir: Path, meses: int = 12) -> dict:
+    from observatorio import compras
+
     out_dir.mkdir(parents=True, exist_ok=True)
     lineas: list = []
     ocs: dict = {}
@@ -286,12 +333,14 @@ def generar(out_dir: Path, raw_dir: Path, meses: int = 12) -> dict:
             "OPACA_UTM": OPACA_UTM,
             "RAZON_MAX": RAZON_MAX,
             "RAZON_LINEA_OPACA": RAZON_LINEA_OPACA,
+            "UNICO_MIN_OTROS": UNICO_MIN_OTROS,
         },  # fmt: skip
         **analizar(lineas, ocs),
     }
     # Nombre y RUT de los proveedores citados (los organismos salen de compras.json).
     citados = {x[4] for x in resultado["sobre_mediana"]} | {x[0] for x in resultado["mismo_proveedor"]}
     citados |= {x[4] for x in resultado["sin_precio_unitario"]}
+    citados |= {v for x in resultado["unico_con_competencia"] for v in [x[3], *x[11]]}
     resultado["proveedores"] = {}
     for o in ocs.values():
         if o["prov"] in citados and o["prov"] not in resultado["proveedores"]:

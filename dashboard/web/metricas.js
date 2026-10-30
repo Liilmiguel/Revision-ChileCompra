@@ -517,7 +517,7 @@
     ["acomp", 5, "Tiene acompañantes: proveedores que ofertan con él sin ganarle nunca"],
     ["td", 15, "Parte de lo que recibe que llega por trato directo, escalada por monto (pleno desde 1.000 UTM en tratos directos)"],
     ["emergencia", 5, "Parte de sus tratos directos por emergencia, escalada por monto (pleno desde 1.000 UTM)"],
-    ["fracc", 10, "Parte de sus Compras Ágiles en episodios de fraccionamiento (desde 5 Compras Ágiles)"],
+    ["fracc", 10, "Parte de sus Compras Ágiles en compras divididas: misma unidad y especificación, en 7 días, sobre el tope (desde 5 Compras Ágiles)"],
     ["banda", 5, "Parte de sus Compras Ágiles entre 90 % y 100 % del tope (15 % o más = máximo; nacional ~3 %; desde 10)"],
     ["precio", 10, "Exceso de precio unitario sobre la mediana del mismo producto, como parte de sus compras directas (10 % o más = máximo)"],
   ];

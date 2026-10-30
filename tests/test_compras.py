@@ -10,26 +10,79 @@ COLS = [
 ]  # fmt: skip
 
 
-def ag(codigo, fecha, monto, org="O1", prov="P1", rubro="R"):
-    return {"codigo": codigo, "fecha": fecha, "tipo": "AG", "org": org, "prov": prov, "rubro": rubro, "monto": monto}
+def ag(
+    codigo,
+    fecha,
+    monto,
+    org="O1",
+    prov="P1",
+    rubro="R",
+    unidad="U1",
+    espec="JERINGA CONTRASTE 200 ML",
+    onu="42221500",
+    bien=True,
+):
+    return {"codigo": codigo, "fecha": fecha, "tipo": "AG", "org": org, "prov": prov, "rubro": rubro,
+            "rubro2": rubro, "monto": monto, "unidad": unidad, "unidad_nombre": unidad, "espec": espec,
+            "onu_principal": onu, "bien": bien}  # fmt: skip
 
 
-def test_fraccionamiento_tres_en_30_dias_sobre_el_tope():
-    topes = {"2026-09": 100.0}
-    xs = [ag("a", "2026-09-01", 40), ag("b", "2026-09-10", 40), ag("c", "2026-09-20", 40)]
-    (e,) = compras.fraccionamiento(xs, topes)
-    assert e["n"] == 3 and e["monto"] == 120 and e["codigos"] == ["a", "b", "c"]
+def td(codigo, fecha, monto, causal, **kw):
+    return {**ag(codigo, fecha, monto, **kw), "tipo": "TD", "causal": causal}
 
 
-def test_sin_fraccionamiento_si_no_supera_el_tope_o_estan_lejos():
-    topes = {"2026-09": 100.0, "2026-10": 100.0}
-    bajo = [ag("a", "2026-09-01", 30), ag("b", "2026-09-10", 30), ag("c", "2026-09-20", 30)]
-    assert compras.fraccionamiento(bajo, topes) == []
-    lejos = [ag("a", "2026-09-01", 60), ag("b", "2026-09-20", 60), ag("c", "2026-10-25", 60)]
-    assert compras.fraccionamiento(lejos, topes) == []
-    # Otro proveedor no cuenta.
-    mixto = [ag("a", "2026-09-01", 60), ag("b", "2026-09-05", 60), ag("c", "2026-09-06", 60, prov="P2")]
-    assert compras.fraccionamiento(mixto, topes) == []
+TOPES = {"2026-09": 100.0, "2026-10": 100.0, "2026-11": 100.0, "2027-03": 100.0}
+
+
+def test_compra_dividida_misma_especificacion_en_pocos_dias():
+    (e,) = compras.compra_dividida([ag("a", "2026-09-01", 60), ag("b", "2026-09-01", 60)], TOPES)
+    assert e["n"] == 2 and e["monto"] == 120 and e["iguales"] and e["veces_tope"] == 1.2
+
+
+def test_compra_dividida_descarta_lo_que_no_es_una_misma_compra():
+    par = lambda **kw: [ag("a", "2026-09-01", 60, **kw), ag("b", "2026-09-02", 60, **kw)]  # noqa: E731
+    assert compras.compra_dividida(par(bien=False), TOPES) == []  # servicio (p. ej. un examen por paciente)
+    assert compras.compra_dividida(par(espec="VER ARCHIVO ADJUNTO"), TOPES) == []  # especificación genérica
+    assert compras.compra_dividida(par(espec="EXAMEN MIBI STRESS"), TOPES) == []  # servicio con código de bien
+    # Otra unidad de compra del mismo organismo (otro hospital), otra especificación o lejos en el tiempo.
+    assert compras.compra_dividida([ag("a", "2026-09-01", 60), ag("b", "2026-09-01", 60, unidad="U2")], TOPES) == []
+    assert (
+        compras.compra_dividida([ag("a", "2026-09-01", 60), ag("b", "2026-09-01", 60, espec="GASA ESTERIL")], TOPES)
+        == []
+    )
+    assert compras.compra_dividida([ag("a", "2026-09-01", 60), ag("b", "2026-09-20", 60)], TOPES) == []
+    assert compras.compra_dividida([ag("a", "2026-09-01", 40), ag("b", "2026-09-01", 40)], TOPES) == []  # bajo el tope
+
+
+def test_compras_repetidas_mismo_producto_y_sin_las_ya_divididas():
+    xs = [ag("a", "2026-09-01", 40, espec="KIT B12"), ag("b", "2026-09-10", 40, espec="KIT FERRITINA"),
+          ag("c", "2026-09-20", 40, espec="KIT CREATININA")]  # fmt: skip
+    (e,) = compras.compras_repetidas(xs, TOPES, set())
+    assert e["n"] == 3 and e["codigos"] == ["a", "b", "c"]
+    assert compras.compras_repetidas(xs, TOPES, {"a"}) == []
+    otro = [*xs[:2], ag("c", "2026-09-20", 40, onu="51101500")]  # otro producto
+    assert compras.compras_repetidas(otro, TOPES, set()) == []
+
+
+def test_emergencia_repetida_solo_bienes_y_a_lo_largo_de_meses():
+    em = "Emergencia, urgencia o imprevisto"
+    xs = [td("a", "2026-09-01", 9, em), td("b", "2026-11-01", 9, em), td("c", "2027-03-15", 9, em)]
+    (e,) = compras.emergencia_repetida(xs)
+    assert e["n"] == 3
+    assert compras.emergencia_repetida([{**x, "bien": False, "onu_principal": "85101500"} for x in xs]) == []
+    assert compras.emergencia_repetida(xs[:2]) == []
+    juntas = [td("a", "2026-09-01", 9, em), td("b", "2026-09-05", 9, em), td("c", "2026-09-09", 9, em)]
+    assert compras.emergencia_repetida(juntas) == []  # una sola emergencia, comprada en partes
+
+
+def test_td_encadenados_de_causales_menores():
+    menor = "Costo de evaluación desproporcionado, y por monto de contratación inferior a 100 UTM"
+    lim = compras.ENCADENADO_UTM * compras.UTM_CLP
+    xs = [td("a", "2026-09-01", 0.6 * lim, menor), td("b", "2026-09-15", 0.6 * lim, menor)]
+    (e,) = compras.td_encadenados(xs)
+    assert e["n"] == 2 and e["causal"] == menor
+    assert compras.td_encadenados([{**x, "espec": "REALIZAR EXAMEN MIBI STRESS"} for x in xs]) == []
+    assert compras.td_encadenados([{**x, "causal": "Emergencia, urgencia o imprevisto"} for x in xs]) == []
 
 
 def test_tope_mes_percentil_alto():
