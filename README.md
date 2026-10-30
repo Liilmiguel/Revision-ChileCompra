@@ -31,6 +31,11 @@ make snapshot                 # exporta los marts a data/snapshot/*.parquet
 make analysis                 # reescribe docs/fase3_respuestas.md
 make dashboard                # http://localhost:8501
 make vivo                     # licitaciones en curso → data/vivo/vivo.json (hasta 1.500 detalles nuevos de la API, ~1 h)
+make compras                  # Compras Ágiles y tratos directos (12 meses) → data/compras/compras.json (~10 min)
+make precios                  # comparación de precios unitarios de órdenes de compra → data/compras/precios.json (~6 min)
+make vinculos                 # grupos de proveedores que comparten dirección o contacto (base + ticket; ~2,5 h)
+make infoprobidad             # participaciones en sociedades (datos.cplt.cl) → data/infoprobidad/participaciones.json
+make conflictos PARTICIPACIONES=participaciones.json  # funcionarios cuya sociedad le vende a su organismo (base)
 make web                      # exporta data/web/ (incluye vivo.json) y verifica las métricas
 make test lint
 ```

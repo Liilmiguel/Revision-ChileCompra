@@ -88,6 +88,183 @@ Agregan las licitaciones adjudicadas que ganó cada proveedor (montos en CLP):
   clásica de competencia simulada, pero también aparece en mercados de nicho (372 pares).
 - **Tasa de éxito**: licitaciones ganadas / licitaciones en que ofertó en todo el periodo.
 
+## Rubros, Explorar y señales complementarias
+
+- **Rubro** (`int_licitacion_rubro`): niveles 1 y 2 de la clasificación de productos de
+  ChileCompra (basada en UNSPSC) de cada línea. El filtro de la web incluye una licitación
+  si **alguna** de sus líneas es del rubro; «rubro principal» es el de más líneas. Se omiten
+  los rubros con menos de 30 licitaciones (valores dañados en origen, como
+  «EQdoPOS, PLATAFORMAS…» en marzo de 2026). Ejemplo: rubro «Tecnologías de la información,
+  telecomunicaciones y radiodifusión» = 18.227 licitaciones; con la palabra «radio», 246.
+- **Explorar**: las 322.040 licitaciones, con o sin señales, con búsqueda por texto (sin
+  tildes) en nombre, código y organismo. Los nombres se cargan comprimidos (~6,5 MB).
+- **Señales complementarias** (`int_licitacion_senales_extra`; no suman al puntaje, para que
+  siga siendo comparable con las respuestas de la Fase 3):
+  - *Ofertas idénticas*: dos o más proveedores ofertan exactamente el mismo total en pesos,
+    desde $100.000 y **no múltiplo de $1.000**. Sin esta condición marcaba 13.449 licitaciones
+    (montos redondos que coinciden por azar); con ella, 3.255. Ejemplo: dos proveedores con
+    $14.813.305 en la misma licitación.
+  - *Fraccionamiento*: L1 / E2 (< 100 UTM) adjudicada a un proveedor que en ±30 días ganó otras
+    2+ del mismo organismo y rubro, sumando más de 100 UTM (2.032 licitaciones).
+  - Descartada: *estimado justo bajo el tope del tipo*. En L1 los estimados se acumulan en
+    montos redondos ($5 y $6 millones), no pegados al tope: entre 95 % y 100 % del tope hay
+    menos licitaciones que entre 90 % y 95 %.
+
+## Compras Ágiles y tratos directos (pestaña «Compras directas»)
+
+Las licitaciones son solo una parte del gasto: en 12 meses (oct. 2025 – sep. 2026) hubo
+723.029 Compras Ágiles ($1,0 billones) y 117.803 tratos directos ($2,5 billones).
+`src/observatorio/compras.py` (`make compras`, sin base de datos) lee la descarga masiva de
+órdenes de compra (`oc-da`, ~100 MB por mes, una fila por ítem), agrega por orden y omite las
+canceladas.
+
+- **Tope de la Compra Ágil medido en los datos**: percentil 99,95 de los montos de cada mes.
+  Sube de $6,93 a $7,17 millones entre octubre de 2025 y septiembre de 2026, al ritmo de la
+  UTM: es 100 UTM **con impuestos**.
+- **Acumulación bajo el tope**: entre 98 % y 100 % del tope hay 7.591 compras, más del doble
+  que en cualquier tramo de 2 % entre 50 % y 90 % (~3.000). Los montos se ajustan para no
+  pasar el tope. Por organismo se compara su proporción en 90–100 % con la nacional (3,2 %).
+- **Fraccionamiento**: 3+ Compras Ágiles del mismo organismo al mismo proveedor y rubro en
+  30 días que juntas superan el tope. Las órdenes marcadas consecutivas forman un episodio:
+  6.534 episodios, 52.284 órdenes, $147 mil millones. En hospitales suelen ser compras
+  recurrentes de insumos que debieron ir por licitación de suministro o convenio marco
+  (p. ej. 354 Compras Ágiles de la Universidad de Chile a un mismo proveedor de insumos
+  médicos en un año).
+- **Trato directo recurrente**: 5+ del mismo organismo al mismo proveedor (5.261 pares).
+- **Trato directo de monto alto**: sobre 1.000 UTM (2.533), para revisar que la causal
+  (proveedor único, emergencia) calce con lo comprado. La causal más usada es «emergencia,
+  urgencia o imprevisto» (33.585 órdenes).
+
+## Pestaña «Proveedores»: puntaje por proveedor
+
+Une, por `CodigoProveedor`, las licitaciones ganadas (con los filtros de la página) y las
+Compras Ágiles y tratos directos de los últimos 12 meses (`proveedores_oc.json`, de
+`observatorio compras`): 80.514 proveedores, 24.114 con 3+ licitaciones o 10+ órdenes.
+Métricas: monto total y por vía, tasa de éxito, parte del monto sin competencia, parte del
+monto pagada **sobre la oferta aceptada más barata** y parte que **excede lo estimado**
+(ambas ponderadas por monto), Compras Ágiles en fraccionamiento y bajo el tope, parte por
+trato directo y por emergencia, captura y acompañantes.
+
+**Puntaje (0–100)** (`proveedoresScore` en `dashboard/web/metricas.js`): suma de diez
+componentes 0–1 con pesos fijos que suman 100; sin datos, el componente aporta 0.
+
+| componente | peso | lleno cuando |
+|---|---|---|
+| riesgo medio de sus licitaciones (ponderado por monto) | 10 | puntaje medio ≥ 50 |
+| monto pagado sobre la oferta más barata | 15 | ≥ 30 % del monto |
+| monto que excede lo estimado | 10 | ≥ 20 % del monto |
+| monto sin competencia (oferente único) | 10 | 100 % |
+| captura del organismo principal | 5 | 100 % de su gasto |
+| acompañantes | 5 | tiene alguno |
+| parte recibida por trato directo × monto | 15 | 100 % y ≥ 1.000 UTM en tratos directos |
+| tratos directos por emergencia × monto | 5 | 100 % y ≥ 1.000 UTM |
+| Compras Ágiles en fraccionamiento (desde 5) | 10 | 100 % |
+| Compras Ágiles entre 90 % y 100 % del tope (desde 10) | 5 | ≥ 15 % (nacional ~3 %) |
+| exceso de precio unitario sobre la mediana / compras directas | 10 | ≥ 10 % |
+
+Dos decisiones de calibración: (1) la primera versión promediaba solo los componentes con
+datos, y cualquier persona con diez tratos directos chicos (honorarios, talleres) quedaba en
+100; por eso pesos fijos y tratos directos escalados por monto. (2) «Sobre lo estimado» como
+razón sin acotar lo dominaban estimados mal digitados (razones de 20 o más); se usa la parte
+del monto que excede lo estimado, entre 0 y 1. Con datos al 6 de octubre de 2026: mediana 6,
+p99 29, máximo 47. El puntaje ordena dónde revisar primero; no prueba nada.
+
+**Monto sobre lo estimado** (columna): suma, en pesos, de lo adjudicado por sobre el monto
+estimado en cada licitación que ganó (su parte). En total $501.500 millones entre 5.095
+proveedores; lo encabezan constructoras (Constructora Tricam: $35.300 millones sobre lo
+estimado en 33 licitaciones). Ojo: un estimado anual frente a un contrato plurianual, o un
+estimado mal digitado, también aparecen como "sobre lo estimado".
+
+## Precios unitarios (vistas de precio en «Compras directas»)
+
+`src/observatorio/precios.py` (`make precios`) compara 3,4 millones de líneas de bienes en
+pesos de las órdenes de compra del año (licitación, convenio marco, Compra Ágil y trato
+directo). Mismo producto = mismo código ONU, misma unidad y mismas primeras 10 palabras de
+la especificación; las de convenio marco traen el código del catálogo, que lo identifica.
+
+Calibración (cuatro corridas):
+1. Con servicios incluidos, los casos los dominaban guardias «por mes» o transporte
+   «global»: la unidad describe un alcance, no una cantidad. Se excluyen servicios
+   (segmentos UNSPSC 70–95, unidades como mes/global/hora y glosas con «servicio»,
+   «arriendo», «según detalle», «insumos»…).
+2. Excluir las líneas sin unidad sacaba también las de convenio marco, las mejores
+   referencias (de 880 mil líneas comparables a 148 mil): se recuperan por su código.
+3. Con 6 palabras, los frascos de 4 ml y 10 ml de nivolumab eran el mismo producto: 10.
+4. Una línea de cantidad 1 a 100+ veces la mediana es un contrato completo cargado como un
+   ítem (pembrolizumab a $57 mil millones): pasa a «sin precio unitario». Razones sobre 50
+   veces se descartan como errores de unidad.
+
+Resultado (oct. 2025 – sep. 2026): 784 mil líneas comparables (5+ compras de 2+
+organismos). **Sobre la mediana** (compra directa a 3+ veces): 38 con exceso de $1 millón o
+más ($72 millones). **Mismo proveedor, precios distintos** (1,5+ veces): 384 productos,
+$2.293 millones pagados sobre el precio mínimo del mismo proveedor. **Sin precio unitario**
+(bienes sobre 1.000 UTM): 268 compras directas por $292 mil millones; Trikafta
+($134.500 millones) y pembrolizumab ($68.000 millones) son el 70 %.
+
+La conclusión incómoda: en compras directas el precio unitario solo se puede comparar en
+una fracción de los casos. Las descripciones son texto libre y los contratos grandes se
+cargan como un ítem sin cantidad: justo donde está la plata, no hay precio que comparar.
+
+## Proveedores vinculados (pestaña «Vínculos»)
+
+Se pidió una pestaña de «accionistas más beneficiados». No se hizo así por dos razones: Mercado
+Público no publica accionistas (las fuentes que los tienen —Registro de Empresas, CMF— no son
+alcanzables desde el entorno y no cubren a los dueños reales de sociedades cerradas), y un
+ranking de personas con nombre ligado a «sobrecostos» a partir de señales heurísticas puede
+dañar a gente sin fundamento. En su lugar:
+
+1. **Conflictos de interés de funcionarios** (pestaña «Conflictos», ver abajo): cruzar las
+   participaciones en sociedades declaradas en InfoProbidad con los proveedores de su propio
+   organismo.
+2. **Grupos de proveedores vinculados** (`src/observatorio/vinculos.py`, `make vinculos`): RUT
+   distintos que comparten dirección (calle, número y comuna) o persona de contacto, según el
+   detalle de una orden de compra en la API. Solo se consultan candidatos por comportamiento en
+   licitaciones desde 2024: ofertas idénticas no redondas, casi siempre los únicos dos oferentes
+   (5+ juntos, la mitad o más solos) o acompañantes (2.972 proveedores, ~2,5 h de API). Un
+   valor compartido por más de 6 proveedores se descarta (oficina o contador común). La web
+   muestra el tipo de vínculo y cuánto compitieron entre sí, no direcciones ni contactos.
+   Resultado (octubre 2026): 2.643 consultados (los demás no tienen órdenes de compra en 12
+   meses), 57 grupos, 14 de ellos ofertaron juntos. El caso más marcado: dos proveedores con la
+   misma dirección que coincidieron en 854 licitaciones, 68 con ofertas idénticas no redondas.
+
+## Posibles conflictos de interés (pestaña «Conflictos»)
+
+`src/observatorio/conflictos.py`, `make conflictos PARTICIPACIONES=ruta.json`. Las participaciones salen de
+`observatorio infoprobidad` (`src/observatorio/infoprobidad.py`), que baja los catálogos de datos
+abiertos del CPLT (`datos.cplt.cl`: `csvdeclaraciones` y `csvaccionDerecho`, ~65 MB) y toma la
+última declaración de cada declarante por su URI. El catálogo no trae el enlace a la ficha ni las
+participaciones del cónyuge; se completan con una extracción de las fichas de infoprobidad.cl
+(`--fichas`) cuando coinciden nombre y fecha. Con el catálogo del 23-10-2026: 18.389
+declarantes, 8.529 participaciones, los mismos 12 casos que con la extracción de fichas. Con la base, la corrida guarda
+las licitaciones por organismo y proveedor en `data/compras/lic_org_rut.json`; con `--lic` ese
+archivo reemplaza a la base, y así la tarea programada (que no tiene la base) rehace el cruce
+cada mañana con las órdenes de compra del día. «Vínculos» no está en la tarea: necesita el caché
+de direcciones y contactos, que no se publica. Entrada: las
+participaciones en sociedades (acciones y derechos) de la última declaración de intereses y
+patrimonio de cada declarante en InfoProbidad (Ley 20.880), extraídas a un JSON con RUT y nombre
+de la sociedad, porcentaje, titular, declarante, cargo, servicio, fecha y enlace a la declaración.
+
+- **Proveedor del Estado**: el RUT de la sociedad aparece en órdenes de compra de los últimos 12
+  meses (todos los tipos, descarga masiva) o en licitaciones adjudicadas desde 2024.
+- **Su propio organismo**: el servicio declarado es texto libre y se empareja con el nombre del
+  organismo comprador por palabras en común sobre las del nombre más largo, ignorando solo
+  artículos, «Ilustre» y «Chile». Con el nombre más corto como base, «Gobierno Regional de
+  O'Higgins» calzaba con «Universidad de O'Higgins» y «Poder Judicial» con la Corporación
+  Administrativa del Poder Judicial. Bajo 60 % no se considera; la web filtra desde 80 %.
+- **Sociedades abiertas**: una sociedad declarada por 3 o más personas se marca y se oculta por
+  defecto. Son acciones de LATAM, bancos, Entel, Copec, sanitarias: sin injerencia en la compra.
+- Se muestra el enlace a la declaración como fuente. Una coincidencia no prueba un conflicto: el
+  funcionario puede haberse abstenido o no tener injerencia en la compra, y un cargo en un
+  servicio grande (un ministerio, un servicio de salud) rara vez decide compras de todo el
+  organismo.
+- Resultado (índice de InfoProbidad del 16-10-2026, 20.076 declarantes, última declaración de
+  cada uno): 9.187 participaciones con RUT, 683 en proveedores del Estado (213 sin contar
+  sociedades abiertas) y 83 coincidencias con su propio organismo, de las cuales 71 son
+  acciones de sociedades abiertas. Quedan 12 filas (10 declarantes), todas en municipios o
+  gobiernos regionales; la mayor, un concejal de Copiapó accionista de una clínica a la que la
+  municipalidad le compró unos $240 millones. Los declarantes se agrupan por nombre (el índice
+  no trae su RUT).
+
 ## Licitaciones en curso (pestaña «En curso» de la versión web)
 
 Las señales anteriores se calculan cuando la licitación ya está adjudicada: sirven para

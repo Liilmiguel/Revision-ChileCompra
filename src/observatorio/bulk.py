@@ -65,11 +65,11 @@ def months_between(start: str, end: str) -> list[str]:
     return out
 
 
-def remote_version(month: str, client: httpx.Client | None = None) -> str | None:
+def remote_version(month: str, client: httpx.Client | None = None, base: str = BULK_BASE) -> str | None:
     """Last-Modified del zip remoto, o None si no existe."""
     http = client or httpx.Client(timeout=60)
     try:
-        resp = http.head(f"{BULK_BASE}{month}.zip", follow_redirects=True)
+        resp = http.head(f"{base}{month}.zip", follow_redirects=True)
     finally:
         if client is None:
             http.close()
@@ -79,13 +79,15 @@ def remote_version(month: str, client: httpx.Client | None = None) -> str | None
     return resp.headers.get("last-modified")
 
 
-def download(month: str, target_dir: Path, client: httpx.Client | None = None) -> Path:
+def download(
+    month: str, target_dir: Path, client: httpx.Client | None = None, base: str = BULK_BASE, prefijo: str = "lic"
+) -> Path:
     target_dir.mkdir(parents=True, exist_ok=True)
-    target = target_dir / f"lic_{month}.zip"
+    target = target_dir / f"{prefijo}_{month}.zip"
     partial = target.with_suffix(".zip.part")
     http = client or httpx.Client(timeout=600)
     try:
-        with http.stream("GET", f"{BULK_BASE}{month}.zip", follow_redirects=True) as resp:
+        with http.stream("GET", f"{base}{month}.zip", follow_redirects=True) as resp:
             resp.raise_for_status()
             with partial.open("wb") as fh:
                 for chunk in resp.iter_bytes():

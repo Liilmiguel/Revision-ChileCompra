@@ -21,3 +21,5 @@ dbt/.user.yml
 data/snapshot/
 data/web/
 data/vivo/
+data/compras/
+data/infoprobidad/

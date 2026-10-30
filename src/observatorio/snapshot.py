@@ -25,9 +25,17 @@ QUERIES = {
                numero_oferentes, n_proveedores_oferentes, n_proveedores_adjudicados,
                es_oferente_unico, n_lineas_atipicas, link,
                puntaje_riesgo, s_oferente_unico, s_competencia_descalificada, s_sobre_oferta_barata,
-               s_sobre_estimado, s_plazo_corto, s_precio_referencia, razon_sobre_mas_barata
+               s_sobre_estimado, s_plazo_corto, s_precio_referencia, razon_sobre_mas_barata,
+               x_ofertas_identicas, x_fraccionamiento, fraccionamiento_n,
+               rubro1_principal, rubro2_principal
         from marts.fct_licitacion
         where fecha_publicacion >= %(desde)s
+    """,
+    "rubros": """
+        select r.codigo_externo, r.rubro1, r.rubro2, r.n_lineas
+        from intermediate.int_licitacion_rubro r
+        join marts.fct_licitacion l using (codigo_externo)
+        where l.fecha_publicacion >= %(desde)s
     """,
     "adjudicaciones": """
         select a.codigo_externo, a.codigo_proveedor, a.moneda, a.n_lineas, a.monto_adjudicado
