@@ -223,7 +223,9 @@ footer { margin-top: 40px; padding-top: 14px; border-top: 1px solid var(--line);
   .filtros { position: static; }
   .contenido { padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
 }
+.solo-celular { display: none !important; }
 @media (max-width: 640px) {
+  .solo-celular { display: grid !important; }
   .lateral { position: static; }
   /* Conflictos: cada fila pasa a ser una ficha con sus etiquetas (orden fijo por monto). */
   #t-conflictos { border: 0; background: none; max-height: none; overflow: visible; }
@@ -607,6 +609,11 @@ footer { margin-top: 40px; padding-top: 14px; border-top: 1px solid var(--line);
           <select id="cf-sim"><option value="0.6">60 %</option><option value="0.8" selected>80 %</option><option value="1">100 %</option></select></div>
         <div class="campo"><label for="cf-abiertas">Sociedades abiertas</label>
           <select id="cf-abiertas"><option value="0" selected>Excluir</option><option value="1">Incluir</option></select></div>
+        <div class="campo solo-celular"><label for="cf-orden">Ordenar por</label>
+          <select id="cf-orden">
+            <option value="t:desc">Monto, de mayor a menor</option><option value="t:asc">Monto, de menor a mayor</option>
+            <option value="d:asc">Declarante (A–Z)</option><option value="o:asc">Organismo (A–Z)</option><option value="so:asc">Sociedad (A–Z)</option>
+          </select></div>
       </div>
       <p class="nota" id="cf-nota"></p>
       <div class="tabla" id="t-conflictos" style="max-height:640px"></div>
@@ -1862,6 +1869,11 @@ function renderConflictos() {
   };
   const soc = (f) => dos(esc(recorta(f.sociedad || "—", 48)), `<span class="rut">${esc(f.rut_sociedad)}</span>${part(f) ? " · " + part(f) : ""}`);
   const TIPO_OC = { AG: "Compra Ágil", TD: "trato directo" };
+  // Selector de orden para las fichas del celular (sin encabezados): sigue el orden vigente de la tabla.
+  const claveOrden = ver === "conflictos" ? "conflictos" : "conflictos-todos";
+  const ord = estado.orden[claveOrden] || { k: "t", dir: "desc" };
+  $("cf-orden").querySelector('option[value="o:asc"]').hidden = ver !== "conflictos";
+  $("cf-orden").value = [...$("cf-orden").options].some((o) => o.value === `${ord.k}:${ord.dir}` && !o.hidden) ? `${ord.k}:${ord.dir}` : "t:desc";
   let r;
   if (ver === "conflictos") {
     r = tablaOrdenable("t-conflictos", [
@@ -2056,6 +2068,11 @@ async function iniciar() {
     let tBuscarCf;
     $("cf-buscar").addEventListener("input", () => { clearTimeout(tBuscarCf); tBuscarCf = setTimeout(render, 200); });
     for (const id of ["cf-ver", "cf-sim", "cf-abiertas"]) $(id).addEventListener("change", render);
+    $("cf-orden").addEventListener("change", () => {
+      const [k, dir] = $("cf-orden").value.split(":");
+      estado.orden[$("cf-ver").value === "conflictos" ? "conflictos" : "conflictos-todos"] = { k, dir };
+      render();
+    });
     $("cd-cerrar").addEventListener("click", () => { $("c-detalle").hidden = true; });
     await aplicar();
     mostrar((location.hash || "#resumen").slice(1));
