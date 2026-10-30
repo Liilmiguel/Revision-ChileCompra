@@ -1521,8 +1521,10 @@ function renderCompras() {
     return normal(n || "").includes(qg) || (qr.length >= 4 && (r || "").replace(/[.\s-]/g, "").toLowerCase().includes(qr));
   };
   const pasaP = (x) => pasa(x) && esProv(x);
-  const div = C.division.filter(pasaP), rep = C.repetidas.filter(pasaP), emerg = C.emergencia_repetida.filter(pasaP);
-  const encad = C.td_encadenados.filter(pasaP), alto = C.td_alto.filter(pasaP);
+  // Un compras.json anterior a estas señales no las trae: la pestaña sigue funcionando sin ellas.
+  const lista = (k) => (C[k] || []).filter(pasaP);
+  const div = lista("division"), rep = lista("repetidas"), emerg = lista("emergencia_repetida");
+  const encad = lista("td_encadenados"), alto = lista("td_alto");
   // Con filtro de proveedor, los totales salen de proveedores_oc.json (todos sus organismos).
   if (qg) {
     if (!PROVOC) cargarProvOC();
