@@ -1,195 +1,280 @@
 <title>Observatorio de Compras Públicas</title>
+<meta name="claude:viewport-fit-sides" content="cover">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;500;600;750&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500&display=swap">
 <style>
-/* Layout: barra de filtros fija arriba, pestañas por pregunta, cada panel abre con la respuesta escrita
-   y sigue con indicadores y gráficos. Paleta de datos validada para daltonismo (claro y oscuro). */
+/* Layout: navegación lateral agrupada (preguntas / investigar / referencia) y un área de trabajo con
+   una barra de filtros plegable. Cada panel abre con la respuesta en prosa, luego cifras, gráficos y
+   tablas. En pantallas angostas la navegación pasa arriba como una franja desplazable. */
 :root {
-  --bg: #f6f6f3;
-  --surface: #fcfcfb;
-  --ink: #0b0b0b;
-  --ink2: #52514e;
-  --muted: #7a7873;
-  --grid: #e1e0d9;
-  --axis: #c3c2b7;
-  --line: rgba(11, 11, 11, .10);
+  --bg: #f4f5f2;
+  --surface: #ffffff;
+  --sunken: #eceee9;
+  --ink: #111312;
+  --ink2: #4a4f4c;
+  --muted: #747a76;
+  --grid: #e3e6e1;
+  --axis: #c4c9c3;
+  --line: rgba(17, 19, 18, .10);
   --accent: #1f5fae;
+  --accent-soft: #e4ecf7;
   --s1: #2a78d6;
   --s2: #eb6834;
   --s3: #1baf7a;
   --s4: #eda100;
-  --chip: #e9eef6;
+  --chip: #e8edf3;
   --warn-bg: #fff3dc;
   --warn-ink: #6b4a00;
   --font: "Public Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
   --mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+  --r: 8px;
+  --lateral: 232px;
 }
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
-    --bg: #0d0d0d; --surface: #1a1a19; --ink: #ffffff; --ink2: #c3c2b7; --muted: #918f88;
-    --grid: #2c2c2a; --axis: #383835; --line: rgba(255, 255, 255, .10); --accent: #7fb0f0;
-    --s1: #3987e5; --s2: #d95926; --s3: #199e70; --s4: #c98500; --chip: #1f2a3a;
+    --bg: #0e0f0f; --surface: #181a19; --sunken: #121413; --ink: #f2f4f2; --ink2: #c0c5c1; --muted: #8e948f;
+    --grid: #262927; --axis: #3a3e3b; --line: rgba(255, 255, 255, .09); --accent: #7fb0f0; --accent-soft: #1b2a3f;
+    --s1: #3987e5; --s2: #d95926; --s3: #199e70; --s4: #c98500; --chip: #22282f;
     --warn-bg: #3a2c0c; --warn-ink: #f3d79a; color-scheme: dark;
   }
 }
 :root[data-theme="dark"] {
-  --bg: #0d0d0d; --surface: #1a1a19; --ink: #ffffff; --ink2: #c3c2b7; --muted: #918f88;
-  --grid: #2c2c2a; --axis: #383835; --line: rgba(255, 255, 255, .10); --accent: #7fb0f0;
-  --s1: #3987e5; --s2: #d95926; --s3: #199e70; --s4: #c98500; --chip: #1f2a3a;
+  --bg: #0e0f0f; --surface: #181a19; --sunken: #121413; --ink: #f2f4f2; --ink2: #c0c5c1; --muted: #8e948f;
+  --grid: #262927; --axis: #3a3e3b; --line: rgba(255, 255, 255, .09); --accent: #7fb0f0; --accent-soft: #1b2a3f;
+  --s1: #3987e5; --s2: #d95926; --s3: #199e70; --s4: #c98500; --chip: #22282f;
   --warn-bg: #3a2c0c; --warn-ink: #f3d79a; color-scheme: dark;
 }
 * { box-sizing: border-box; }
-body { background: var(--bg); color: var(--ink); font: 15px/1.5 var(--font); margin: 0; }
-.wrap { max-width: 1280px; margin: 0 auto; padding-inline: max(16px, 2.5vw); padding-block: 0 48px; }
-header.top { padding-block: 28px 8px; display: grid; gap: 4px; }
-.eyebrow { font: 500 12px/1.4 var(--mono); letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
-h1 { font-size: clamp(26px, 3.4vw, 38px); line-height: 1.1; font-weight: 750; letter-spacing: -.02em; margin: 0; text-wrap: balance; }
-h2 { font-size: 22px; line-height: 1.25; font-weight: 700; margin: 0; text-wrap: balance; }
-h3 { font-size: 14px; font-weight: 650; margin: 0 0 6px; color: var(--ink); }
-.sub { color: var(--ink2); margin: 0; max-width: 72ch; }
+body { background: var(--bg); color: var(--ink); font: 15px/1.55 var(--font); margin: 0; }
+body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 10; background: var(--bg); }
 
-/* filtros */
-.filtros { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5; background: var(--bg);
-  border-bottom: 1px solid var(--line); padding-block: 12px; display: flex; flex-wrap: wrap; gap: 10px 12px; align-items: end; }
-.campo { display: grid; gap: 3px; min-width: 0; }
-.campo label { font: 500 11px/1 var(--mono); letter-spacing: .05em; text-transform: uppercase; color: var(--muted); }
-select, input[type="search"] { font: inherit; font-size: 14px; color: var(--ink); background: var(--surface);
-  border: 1px solid var(--line); border-radius: 6px; padding: 6px 8px; min-width: 0; max-width: 100%; }
-input[type="search"] { width: 260px; }
-select:focus-visible, input:focus-visible, button:focus-visible, a:focus-visible, summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
-button { font: inherit; cursor: pointer; }
-.btn { font-size: 13px; border: 1px solid var(--line); background: var(--surface); color: var(--ink2); border-radius: 6px; padding: 6px 10px; }
-.btn:hover { color: var(--ink); border-color: var(--axis); }
-.estado { margin-left: auto; font: 500 12px/1.3 var(--mono); color: var(--muted); text-align: right; }
+/* tipografía: 12 / 13 / 15 / 17 / 22 / 26 */
+.eyebrow { font: 500 11px/1.4 var(--mono); letter-spacing: .07em; text-transform: uppercase; color: var(--muted); }
+h1 { font-size: 19px; line-height: 1.2; font-weight: 800; letter-spacing: -.01em; margin: 0; text-wrap: balance; }
+h2 { font-size: 22px; line-height: 1.25; font-weight: 700; letter-spacing: -.01em; margin: 0; text-wrap: balance; }
+h3 { font-size: 14px; line-height: 1.35; font-weight: 650; margin: 0 0 8px; color: var(--ink); text-wrap: balance; }
+.sub { color: var(--ink2); margin: 0; max-width: 70ch; }
+.nota { font-size: 13px; line-height: 1.5; color: var(--muted); margin: 0; max-width: 90ch; }
+.aviso { display: inline-block; background: var(--warn-bg); color: var(--warn-ink); border-radius: 6px; padding: 6px 10px; font-size: 13px; max-width: 100ch; }
+a { color: var(--accent); }
+
+/* armazón */
+.app { display: grid; grid-template-columns: var(--lateral) minmax(0, 1fr); min-height: 100vh; }
+.lateral { position: sticky; top: 0; height: 100vh; overflow-y: auto; display: flex; flex-direction: column; gap: 18px;
+  padding-block: 24px 20px; padding-left: max(18px, env(safe-area-inset-left, 0px)); padding-right: 14px;
+  border-right: 1px solid var(--line); background: var(--sunken); }
+.marca-sitio { display: grid; gap: 6px; }
+.contenido { min-width: 0; padding-block: 0 56px; padding-left: max(16px, 3vw); padding-right: max(16px, env(safe-area-inset-right, 0px), 3vw); }
+.contenido > * { max-width: 1240px; }
+
+/* navegación */
+nav.tabs { display: flex; flex-direction: column; gap: 1px; }
+nav.tabs .grupo { font: 500 10.5px/1 var(--mono); letter-spacing: .08em; text-transform: uppercase; color: var(--muted); padding: 14px 10px 6px; }
+nav.tabs .grupo:first-child { padding-top: 0; }
+nav.tabs button { display: flex; align-items: baseline; gap: 8px; text-align: left; border: 0; background: none; color: var(--ink2);
+  padding: 7px 10px; font-size: 14px; font-weight: 550; border-radius: 6px; white-space: nowrap; }
+nav.tabs button:hover { background: var(--surface); color: var(--ink); }
+nav.tabs button[aria-selected="true"] { background: var(--surface); color: var(--ink); font-weight: 650; box-shadow: inset 2px 0 0 var(--accent); }
+nav.tabs button .n { font: 500 11px var(--mono); color: var(--muted); min-width: 10px; }
+.estado { margin-top: auto; font: 500 11.5px/1.5 var(--mono); color: var(--muted); }
 .estado b { color: var(--ink); font-weight: 600; }
 
-/* pestañas */
-nav.tabs { display: flex; gap: 2px; overflow-x: auto; margin-block: 14px 18px; border-bottom: 1px solid var(--line); }
-nav.tabs button { border: 0; background: none; color: var(--ink2); padding: 10px 12px; font-size: 14px; font-weight: 550;
-  border-bottom: 2px solid transparent; white-space: nowrap; }
-nav.tabs button[aria-selected="true"] { color: var(--ink); border-bottom-color: var(--accent); }
-nav.tabs button .n { font: 500 11px var(--mono); color: var(--muted); margin-right: 4px; }
+/* filtros */
+.filtros { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5; background: var(--bg); padding-block: 14px 12px; border-bottom: 1px solid var(--line); display: grid; gap: 10px; }
+.filtros[hidden] { display: none !important; }
+.barra-filtros { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.barra-filtros .btn[aria-expanded="true"] { background: var(--accent-soft); color: var(--ink); border-color: transparent; }
+.cuenta { display: inline-grid; place-items: center; min-width: 18px; height: 18px; padding: 0 5px; margin-left: 6px; border-radius: 9px; background: var(--accent); color: var(--surface); font: 600 11px var(--mono); }
+.activos { display: flex; flex-wrap: wrap; gap: 6px; min-width: 0; }
+.activo { display: inline-flex; align-items: center; gap: 6px; max-width: 100%; font-size: 12.5px; background: var(--chip); color: var(--ink); border: 0; border-radius: 999px; padding: 4px 6px 4px 10px; }
+.activo span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 32ch; }
+.activo b { font-weight: 500; color: var(--muted); }
+.activo i { font-style: normal; display: inline-grid; place-items: center; width: 16px; height: 16px; border-radius: 50%; color: var(--muted); }
+.activo:hover i { background: var(--surface); color: var(--ink); }
+.sin-filtros { font-size: 13px; color: var(--muted); }
+.campos { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 200px), 1fr)); gap: 10px 12px; }
+.campos .ancho { grid-column: span 2; }
+@media (max-width: 520px) { .campos .ancho { grid-column: auto; } }
+.campo { display: grid; gap: 4px; min-width: 0; align-content: start; }
+.campo label { font: 500 10.5px/1.2 var(--mono); letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+.campo.no-aplica { opacity: .45; }
+select, input[type="search"] { font: inherit; font-size: 14px; color: var(--ink); background: var(--surface);
+  border: 1px solid var(--line); border-radius: 6px; padding: 6px 8px; min-width: 0; width: 100%; max-width: 100%; }
+select:disabled { cursor: not-allowed; }
+select:focus-visible, input:focus-visible, button:focus-visible, a:focus-visible, summary:focus-visible, [tabindex]:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+button { font: inherit; cursor: pointer; }
+.btn { font-size: 13px; font-weight: 550; border: 1px solid var(--line); background: var(--surface); color: var(--ink2); border-radius: 6px; padding: 6px 12px; }
+.btn:hover { color: var(--ink); border-color: var(--axis); }
+.btn.quieto { background: none; border-color: transparent; color: var(--muted); }
+.btn.quieto:hover { color: var(--ink); }
 
-section.panel { display: grid; gap: 18px; }
+/* paneles */
+section.panel { display: grid; gap: 20px; padding-top: 22px; }
+section.panel > h2 + .respuesta, section.panel > h2 + .sub { margin-top: -10px; }
 [hidden], section.panel[hidden] { display: none !important; }
-.respuesta { background: var(--surface); border: 1px solid var(--line); border-left: 3px solid var(--accent);
-  border-radius: 8px; padding: 14px 16px; font-size: 16px; line-height: 1.55; max-width: 100ch; }
-.respuesta b { font-weight: 650; }
-.nota { font-size: 13px; color: var(--ink2); margin: 0; max-width: 100ch; }
-.aviso { background: var(--warn-bg); color: var(--warn-ink); border-radius: 6px; padding: 8px 12px; font-size: 13px; max-width: 100ch; }
+.cabeza { display: grid; gap: 8px; }
+.respuesta { font-size: 17px; line-height: 1.55; color: var(--ink); max-width: 72ch; margin: 0; }
+.respuesta b { font-weight: 700; }
 
-.kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 12px; }
-.kpi { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 12px 14px; min-width: 0; }
-.kpi .l { font-size: 12.5px; color: var(--ink2); }
-.kpi .v { font-size: 28px; font-weight: 650; letter-spacing: -.01em; line-height: 1.2; }
-.kpi .d { font: 12px var(--mono); color: var(--muted); }
+.kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 170px), 1fr)); gap: 10px; }
+.kpi { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); padding: 12px 14px; min-width: 0; display: grid; gap: 2px; align-content: start; }
+.kpi .l { font-size: 12.5px; line-height: 1.35; color: var(--ink2); }
+.kpi .v { font-size: clamp(20px, 1.9vw, 25px); font-weight: 700; letter-spacing: -.01em; line-height: 1.2; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.kpi .v .u { white-space: nowrap; font-size: .62em; font-weight: 600; letter-spacing: 0; color: var(--ink2); }
+.kpi .d { font: 11.5px/1.4 var(--mono); color: var(--muted); }
 
-.cuatro { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.cuatro { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
 @media (max-width: 760px) { .cuatro { grid-template-columns: minmax(0, 1fr); } }
-.cuatro .respuesta { font-size: 15px; cursor: pointer; }
+.cuatro .respuesta { font-size: 15px; background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); padding: 14px 16px 12px; cursor: pointer; display: grid; gap: 6px; max-width: none; }
 .cuatro .respuesta:hover { border-color: var(--axis); }
-.cuatro .q { font: 500 11px var(--mono); letter-spacing: .05em; text-transform: uppercase; color: var(--muted); display: block; margin-bottom: 4px; }
+.cuatro .q { font: 500 11px var(--mono); letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+.cuatro .ir { font-size: 13px; font-weight: 600; color: var(--accent); }
 
-.grid2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 460px), 1fr)); gap: 16px; }
-.card { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 14px 14px 10px; min-width: 0; }
-.card .chart { position: relative; height: 300px; }
-.card .chart.alto { height: 460px; }
-.leyenda { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 12.5px; color: var(--ink2); margin: 0 0 6px; }
+.grid2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 440px), 1fr)); gap: 14px; }
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); padding: 16px 16px 12px; min-width: 0; }
+.card .chart { position: relative; height: 270px; }
+.card .chart.alto { height: 440px; }
+.leyenda { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 12.5px; color: var(--ink2); margin: 0 0 8px; }
 .leyenda i { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 5px; vertical-align: -1px; }
-details { margin-top: 6px; }
-details summary { font-size: 12.5px; color: var(--ink2); cursor: pointer; }
-.tabla { overflow-x: auto; max-height: 420px; overflow-y: auto; border: 1px solid var(--line); border-radius: 6px; margin-top: 6px; }
+details { margin-top: 8px; }
+details summary { font-size: 12.5px; color: var(--muted); cursor: pointer; width: fit-content; }
+details summary:hover { color: var(--ink); }
+
+/* tablas */
+.tabla { overflow: auto; max-height: 420px; border: 1px solid var(--line); border-radius: 6px; margin-top: 8px; background: var(--surface); }
 table { border-collapse: collapse; width: 100%; font-size: 13px; }
-th, td { padding: 6px 10px; text-align: left; border-bottom: 1px solid var(--line); vertical-align: top; }
-th { position: sticky; top: 0; background: var(--surface); font-weight: 600; color: var(--ink2); white-space: nowrap; }
+th, td { padding: 7px 10px; text-align: left; border-bottom: 1px solid var(--line); vertical-align: top; }
+tbody tr:last-child td { border-bottom: 0; }
+th { position: sticky; top: 0; z-index: 1; background: var(--surface); font-weight: 600; font-size: 12px; color: var(--muted); white-space: nowrap; box-shadow: inset 0 -1px 0 var(--line); }
 td.n, th.n { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
 td.code { font-family: var(--mono); font-size: 12px; white-space: nowrap; }
 td a { color: var(--accent); }
-.seg { display: inline-flex; border: 1px solid var(--line); border-radius: 6px; overflow: hidden; }
-.seg button { border: 0; background: var(--surface); color: var(--ink2); padding: 5px 10px; font-size: 13px; }
-.seg button[aria-pressed="true"] { background: var(--chip); color: var(--ink); font-weight: 600; }
-.marca { display: inline-block; font: 500 11px var(--mono); padding: 1px 6px; border-radius: 4px; background: var(--chip); color: var(--ink); margin: 1px 2px 1px 0; white-space: nowrap; }
-.carga { font: 500 12px var(--mono); color: var(--muted); }
-.controles { display: flex; flex-wrap: wrap; gap: 10px 16px; align-items: end; margin-bottom: 10px; }
-.chips { display: flex; flex-wrap: wrap; gap: 6px; }
-.chips button { font-size: 12.5px; border: 1px solid var(--line); background: var(--surface); color: var(--ink2); border-radius: 999px; padding: 4px 10px; }
-.chips button[aria-pressed="true"] { background: var(--chip); color: var(--ink); border-color: var(--accent); font-weight: 600; }
 th.ord { cursor: pointer; user-select: none; }
 th.ord:hover { color: var(--ink); }
+th.ord[aria-sort] { color: var(--ink); }
 th.ord[aria-sort="descending"]::after { content: " ↓"; }
 th.ord[aria-sort="ascending"]::after { content: " ↑"; }
 tr.clic { cursor: pointer; }
-tr.clic:hover td { background: var(--chip); }
+tr.clic:hover td { background: var(--accent-soft); }
+
+/* controles dentro de paneles */
+.controles { display: flex; flex-wrap: wrap; gap: 10px 14px; align-items: end; margin-bottom: 10px; }
+.controles .campo { min-width: 150px; }
+.seg { display: inline-flex; flex-wrap: wrap; border: 1px solid var(--line); border-radius: 6px; overflow: hidden; background: var(--surface); max-width: 100%; }
+.seg button { border: 0; background: none; color: var(--ink2); padding: 5px 10px; font-size: 13px; }
+.seg button + button { box-shadow: inset 1px 0 0 var(--line); }
+.seg button[aria-pressed="true"] { background: var(--accent-soft); color: var(--ink); font-weight: 650; }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.chips button { font-size: 12.5px; border: 1px solid var(--line); background: var(--surface); color: var(--ink2); border-radius: 999px; padding: 3px 10px; }
+.chips button[aria-pressed="true"] { background: var(--accent-soft); color: var(--ink); border-color: var(--accent); font-weight: 600; }
+.marca { display: inline-block; font: 500 11px var(--mono); padding: 1px 6px; border-radius: 4px; background: var(--chip); color: var(--ink); margin: 1px 2px 1px 0; white-space: nowrap; }
+.marca.baja { background: var(--warn-bg); color: var(--warn-ink); }
+.marca.error { background: var(--s2); color: #fff; }
+.carga { font: 500 12px var(--mono); color: var(--muted); }
 .punt { display: inline-block; min-width: 2.4em; text-align: center; font: 600 12px var(--mono); padding: 1px 6px; border-radius: 4px; }
 .punt.alto { background: var(--s2); color: #fff; }
 .punt.medio { background: var(--warn-bg); color: var(--warn-ink); }
 .punt.bajo { background: var(--chip); color: var(--ink2); }
 .barra { display: inline-block; height: 8px; border-radius: 2px; background: var(--s1); vertical-align: middle; margin-right: 6px; }
-.ficha { border-top: 3px solid var(--accent); display: grid; grid-template-columns: minmax(0, 1fr); gap: 14px; scroll-margin-top: 150px; }
-.ficha .kpi .v { font-size: 21px; }
-/* La primera columna (nombre) queda fija al desplazar tablas anchas. */
+.ficha { border-top: 3px solid var(--accent); display: grid; grid-template-columns: minmax(0, 1fr); gap: 14px; scroll-margin-top: 90px; }
+.ficha .kpi .v { font-size: 20px; }
 #t-alertas td:first-child, #t-alertas th:first-child { position: sticky; left: 0; background: var(--surface); z-index: 1; }
 #t-alertas th:first-child { z-index: 2; }
-#t-alertas tr.clic:hover td:first-child { background: var(--chip); }
+#t-alertas tr.clic:hover td:first-child { background: var(--accent-soft); }
 .pares { display: flex; flex-wrap: wrap; gap: 6px; }
-.marca.baja { background: var(--warn-bg); color: var(--warn-ink); }
-.marca.error { background: var(--s2); color: #fff; }
 .senales-lista { margin: 8px 0 0; padding-left: 18px; }
 .senales-lista li { margin: 4px 0; }
-.metodo { max-width: 78ch; display: grid; gap: 10px; }
+.metodo { max-width: 76ch; display: grid; gap: 10px; }
 .metodo p, .metodo li { color: var(--ink2); }
-.metodo dt { font-weight: 650; margin-top: 8px; }
+.metodo dt { font-weight: 650; margin-top: 10px; }
 .metodo dd { margin: 2px 0 0; color: var(--ink2); }
-footer { margin-top: 32px; font-size: 12.5px; color: var(--muted); }
+footer { margin-top: 40px; padding-top: 14px; border-top: 1px solid var(--line); font-size: 12.5px; color: var(--muted); }
+
+/* pantallas angostas: la navegación pasa arriba */
+@media (max-width: 1080px) {
+  .app { grid-template-columns: minmax(0, 1fr); }
+  .lateral { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 6; height: auto; overflow: visible; flex-direction: column; gap: 10px;
+    padding-block: 14px 0; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+    border-right: 0; border-bottom: 1px solid var(--line); }
+  .lateral .marca-sitio { grid-template-columns: minmax(0, 1fr) auto; align-items: baseline; gap: 2px 12px; }
+  .lateral .marca-sitio .eyebrow { grid-column: 1 / -1; }
+  .estado { margin-top: 0; }
+  nav.tabs { flex-direction: row; overflow-x: auto; gap: 2px; margin-inline: -4px; padding-bottom: 8px; scrollbar-width: thin;
+    mask-image: linear-gradient(90deg, #000 92%, transparent); -webkit-mask-image: linear-gradient(90deg, #000 92%, transparent); }
+  nav.tabs .grupo { display: none; }
+  nav.tabs button { padding: 6px 10px; }
+  nav.tabs button[aria-selected="true"] { box-shadow: inset 0 -2px 0 var(--accent); }
+  nav.tabs .grupo + button { margin-left: 10px; position: relative; }
+  nav.tabs .grupo + button::before { content: ""; position: absolute; left: -6px; top: 8px; bottom: 8px; border-left: 1px solid var(--axis); }
+  nav.tabs .grupo:first-child + button { margin-left: 0; }
+  nav.tabs .grupo:first-child + button::before { content: none; }
+  .filtros { position: static; }
+  .contenido { padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+}
 @media (max-width: 640px) {
-  .estado { margin-left: 0; text-align: left; width: 100%; }
-  input[type="search"] { width: 100%; }
+  .lateral { position: static; }
   .card .chart.alto { height: 380px; }
+  .respuesta { font-size: 16px; }
 }
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
 </style>
 
-<div class="wrap">
-  <header class="top">
-    <span class="eyebrow" id="periodo">Mercado Público · licitaciones 2024-01 a 2026-09</span>
-    <h1>Observatorio de Compras Públicas</h1>
-    <p class="sub">Competencia, precio, concentración y resultado de las licitaciones del Estado de Chile, a partir de la descarga masiva de ChileCompra.</p>
-  </header>
-
-  <div class="filtros" role="search" aria-label="Filtros">
-    <div class="campo"><label for="f-desde">Desde</label><select id="f-desde"></select></div>
-    <div class="campo"><label for="f-hasta">Hasta</label><select id="f-hasta"></select></div>
-    <div class="campo"><label for="f-tipo">Tipo de licitación</label><select id="f-tipo"><option value="">Todos</option></select></div>
-    <div class="campo"><label for="f-region">Región</label><select id="f-region"><option value="">Todas</option></select></div>
-    <div class="campo"><label for="f-sector">Sector</label><select id="f-sector"><option value="">Todos</option></select></div>
-    <div class="campo"><label for="f-rubro1">Rubro</label><select id="f-rubro1" style="max-width:260px"><option value="">Todos</option></select></div>
-    <div class="campo"><label for="f-rubro2">Subrubro</label><select id="f-rubro2" style="max-width:260px"><option value="">Todos</option></select></div>
-    <div class="campo"><label for="f-org">Organismo comprador</label>
-      <input type="search" id="f-org" list="l-org" placeholder="Todos · escribe para buscar" autocomplete="off">
-      <datalist id="l-org"></datalist></div>
-    <button class="btn" id="limpiar" type="button">Limpiar filtros</button>
+<div class="app">
+  <aside class="lateral">
+    <div class="marca-sitio">
+      <span class="eyebrow" id="periodo">Mercado Público · 2024-01 a 2026-09</span>
+      <h1>Observatorio de Compras Públicas</h1>
+    </div>
+    <nav class="tabs" role="tablist" aria-label="Secciones">
+      <span class="grupo" role="presentation">Las cuatro preguntas</span>
+      <button role="tab" data-tab="resumen" aria-selected="true">Resumen</button>
+      <button role="tab" data-tab="competencia"><span class="n">1</span>Competencia</button>
+      <button role="tab" data-tab="precio"><span class="n">2</span>Precio</button>
+      <button role="tab" data-tab="concentracion"><span class="n">3</span>Concentración</button>
+      <button role="tab" data-tab="proceso"><span class="n">4</span>Proceso</button>
+      <span class="grupo" role="presentation">Investigar</span>
+      <button role="tab" data-tab="alertas">Señales de alerta</button>
+      <button role="tab" data-tab="vivo">En curso</button>
+      <button role="tab" data-tab="explorar">Explorar licitaciones</button>
+      <button role="tab" data-tab="compras">Compras directas</button>
+      <button role="tab" data-tab="proveedores">Proveedores</button>
+      <button role="tab" data-tab="vinculos">Vínculos</button>
+      <button role="tab" data-tab="conflictos">Conflictos de interés</button>
+      <span class="grupo" role="presentation">Referencia</span>
+      <button role="tab" data-tab="metodologia">Metodología</button>
+    </nav>
     <div class="estado" id="estado" aria-live="polite"><span class="carga">Cargando datos…</span></div>
-  </div>
+  </aside>
 
-  <nav class="tabs" role="tablist" aria-label="Secciones">
-    <button role="tab" data-tab="resumen" aria-selected="true">Resumen</button>
-    <button role="tab" data-tab="competencia"><span class="n">1</span>Competencia</button>
-    <button role="tab" data-tab="precio"><span class="n">2</span>Precio</button>
-    <button role="tab" data-tab="concentracion"><span class="n">3</span>Concentración</button>
-    <button role="tab" data-tab="proceso"><span class="n">4</span>Proceso</button>
-    <button role="tab" data-tab="alertas">Señales de alerta</button>
-    <button role="tab" data-tab="vivo">En curso</button>
-    <button role="tab" data-tab="explorar">Explorar</button>
-    <button role="tab" data-tab="compras">Compras directas</button>
-    <button role="tab" data-tab="proveedores">Proveedores</button>
-    <button role="tab" data-tab="vinculos">Vínculos</button>
-    <button role="tab" data-tab="conflictos">Conflictos</button>
-    <button role="tab" data-tab="metodologia">Metodología</button>
-  </nav>
+  <main class="contenido">
+  <div class="filtros" id="filtros" role="search" aria-label="Filtros">
+    <div class="barra-filtros">
+      <button class="btn" id="f-abrir" type="button" aria-expanded="false" aria-controls="f-campos">Filtros<span class="cuenta" id="f-cuenta" hidden></span></button>
+      <div class="activos" id="f-activos"><span class="sin-filtros">Todas las licitaciones del periodo</span></div>
+      <button class="btn quieto" id="limpiar" type="button" hidden>Limpiar filtros</button>
+    </div>
+    <div class="campos" id="f-campos" hidden>
+      <div class="campo"><label for="f-desde">Desde</label><select id="f-desde"></select></div>
+      <div class="campo"><label for="f-hasta">Hasta</label><select id="f-hasta"></select></div>
+      <div class="campo"><label for="f-tipo">Tipo de licitación</label><select id="f-tipo"><option value="">Todos</option></select></div>
+      <div class="campo"><label for="f-region">Región</label><select id="f-region"><option value="">Todas</option></select></div>
+      <div class="campo"><label for="f-sector">Sector</label><select id="f-sector"><option value="">Todos</option></select></div>
+      <div class="campo"><label for="f-rubro1">Rubro</label><select id="f-rubro1"><option value="">Todos</option></select></div>
+      <div class="campo"><label for="f-rubro2">Subrubro</label><select id="f-rubro2"><option value="">Todos</option></select></div>
+      <div class="campo ancho"><label for="f-org">Organismo comprador</label>
+        <input type="search" id="f-org" list="l-org" placeholder="Todos · escribe para buscar" autocomplete="off">
+        <datalist id="l-org"></datalist></div>
+    </div>
+    <p class="nota" id="f-aplica" hidden></p>
+  </div>
 
   <!-- RESUMEN -->
   <section class="panel" id="p-resumen" role="tabpanel">
+    <div class="cabeza">
+      <h2>Las licitaciones del Estado en cuatro preguntas</h2>
+      <p class="sub">Competencia, precio, concentración y resultado de las licitaciones del Estado de Chile, a partir de la descarga masiva de ChileCompra. Cada respuesta se recalcula con los filtros.</p>
+    </div>
     <div class="kpis" id="k-resumen"></div>
     <div class="cuatro" id="cuatro"></div>
     <div class="card">
@@ -534,6 +619,7 @@ footer { margin-top: 32px; font-size: 12.5px; color: var(--muted); }
   </section>
 
   <footer id="pie"></footer>
+  </main>
 </div>
 
 <script src="chart.umd.js"></script>
@@ -570,10 +656,34 @@ function mostrar(tab) {
   estado.tab = tab;
   for (const b of document.querySelectorAll("nav.tabs button")) b.setAttribute("aria-selected", b.dataset.tab === tab);
   for (const t of TABS) $("p-" + t).hidden = t !== tab;
+  aplicaFiltros(tab);
   try { history.replaceState(null, "", "#" + tab); } catch (e) { /* sin historial */ }
   render();
 }
-document.querySelectorAll("nav.tabs button").forEach((b) => b.addEventListener("click", () => mostrar(b.dataset.tab)));
+document.querySelectorAll("nav.tabs button").forEach((b) => b.addEventListener("click", () => {
+  mostrar(b.dataset.tab);
+  b.scrollIntoView({ block: "nearest", inline: "nearest" });
+  window.scrollTo({ top: 0 });
+}));
+
+// Qué filtros globales usa cada pestaña (sin entrada: todos; lista vacía: ninguno).
+const FILTROS_TODOS = ["f-desde", "f-hasta", "f-tipo", "f-region", "f-sector", "f-rubro1", "f-rubro2", "f-org"];
+const APLICA = { vivo: ["f-tipo", "f-region", "f-org"], compras: ["f-region", "f-org", "f-rubro1"], vinculos: [], conflictos: [], metodologia: [] };
+const FNOMBRE = { "f-desde": "periodo", "f-tipo": "tipo", "f-region": "región", "f-sector": "sector", "f-rubro1": "rubro", "f-rubro2": "subrubro", "f-org": "organismo" };
+function aplicaFiltros(tab) {
+  const a = APLICA[tab];
+  $("filtros").hidden = Array.isArray(a) && a.length === 0;
+  for (const id of FILTROS_TODOS) {
+    const ok = !a || a.includes(id);
+    $(id).disabled = !ok;
+    $(id).closest(".campo").classList.toggle("no-aplica", !ok);
+  }
+  $("f-aplica").hidden = !a || !a.length;
+  if (a && a.length) {
+    const n = a.map((x) => FNOMBRE[x]);
+    $("f-aplica").textContent = `En esta pestaña solo se aplican los filtros de ${n.slice(0, -1).join(", ")} y ${n[n.length - 1]}.`;
+  }
+}
 
 // ---------- tema para Chart.js (lee los tokens CSS)
 function tema() {
@@ -585,9 +695,22 @@ const charts = {};
 function chart(id, config) {
   const T = tema();
   Chart.defaults.font.family = T.font;
+  Chart.defaults.font.size = 12;
+  Chart.defaults.locale = "es-CL";
   Chart.defaults.color = T.ink2;
   Chart.defaults.borderColor = T.grid;
   if (charts[id]) charts[id].destroy();
+  // Barras horizontales: las etiquetas largas se recortan con «…» (el nombre completo va en el tooltip).
+  if (config.options?.indexAxis === "y") {
+    const y = (config.options.scales ||= {}).y ||= {};
+    const ticks = y.ticks ||= {};
+    ticks.callback ||= function (v) { const l = String(this.getLabelForValue(v)); return l.length > 40 ? l.slice(0, 39) + "…" : l; };
+  }
+  // Series en el tiempo: fechas horizontales, una cada tanto.
+  if (config.type === "line" && !config.options?.indexAxis) {
+    const x = (config.options.scales ||= {}).x ||= {};
+    x.ticks = Object.assign({ maxRotation: 0, autoSkipPadding: 14 }, x.ticks);
+  }
   config.options = Object.assign({ responsive: true, maintainAspectRatio: false, animation: false, plugins: {} }, config.options);
   config.options.plugins = Object.assign({ legend: { display: false }, tooltip: { backgroundColor: T.surface, titleColor: T.ink, bodyColor: T.ink2, borderColor: T.axis, borderWidth: 1, padding: 10 } }, config.options.plugins);
   charts[id] = new Chart($(id), config);
@@ -604,8 +727,10 @@ function tabla(id, cols, filas) {
   const body = filas.map((f) => "<tr>" + cols.map((c) => `<td class="${c.n ? "n" : c.code ? "code" : ""}">${c.html ? c.v(f) : esc(c.v(f))}</td>`).join("") + "</tr>").join("");
   $(id).innerHTML = `<table><thead>${head}</thead><tbody>${body}</tbody></table>`;
 }
+// "$ 17,9 billones" → la unidad en tamaño menor, para que la cifra quepa en una línea.
+const unidad = (v) => String(v).replace(/^(\$\s[\d.,]+)\s((?:mil\s)?(?:millones|billones))$/, '$1 <span class="u">$2</span>');
 function kpis(id, items) {
-  $(id).innerHTML = items.map(([l, v, d]) => `<div class="kpi"><div class="l">${esc(l)}</div><div class="v">${v}</div>${d ? `<div class="d">${d}</div>` : ""}</div>`).join("");
+  $(id).innerHTML = items.map(([l, v, d]) => `<div class="kpi"><div class="l">${esc(l)}</div><div class="v">${unidad(v)}</div>${d ? `<div class="d">${d}</div>` : ""}</div>`).join("");
 }
 
 // ---------- textos de respuesta (compartidos por el resumen y las pestañas)
@@ -624,7 +749,7 @@ function renderResumen(r, c, p, k, pr) {
     ["Organismos compradores", num(r.organismos)],
     ["Proveedores con adjudicación en CLP", num(r.proveedores)],
   ]);
-  const card = (tab, n, q, html) => `<div class="respuesta" role="button" tabindex="0" data-ir="${tab}"><span class="q">${n} · ${q}</span>${html}</div>`;
+  const card = (tab, n, q, html) => `<div class="respuesta" role="button" tabindex="0" data-ir="${tab}"><span class="q">${n} · ${q}</span><span>${html}</span><span class="ir">Ver ${q.toLowerCase()} →</span></div>`;
   $("cuatro").innerHTML = [
     card("competencia", 1, "Competencia", textos.competencia(c)),
     card("precio", 2, "Precio", textos.precio(p)),
@@ -1541,8 +1666,9 @@ function renderProveedores(X) {
   kpis("k-proveedores", [
     ["Proveedores", num(filas.length), "con el volumen y filtros elegidos"],
     ["Monto total recibido", clp(tot[0])],
-    ["Por licitación", clp(tot[1]), pct(tot[0] ? tot[1] / tot[0] : null)],
-    ["Por Compra Ágil / trato directo", `${clp(tot[2])} / ${clp(tot[3])}`],
+    ["Por licitación", clp(tot[1]), pct(tot[0] ? tot[1] / tot[0] : null) + " del total"],
+    ["Por Compra Ágil", clp(tot[2]), pct(tot[0] ? tot[2] / tot[0] : null) + " del total"],
+    ["Por trato directo", clp(tot[3]), pct(tot[0] ? tot[3] / tot[0] : null) + " del total"],
   ]);
   const p0 = (x) => (x == null ? "—" : pct(x, 0));
   const r = tablaOrdenable("t-proveedores", [
@@ -1753,7 +1879,7 @@ async function iniciar() {
     subrubros();
     opts("x-estado", ESTADOS_TXT.map((e, i) => [i, e]));
     $("l-org").innerHTML = cat.organismos.map(([, n]) => `<option value="${esc(n)}"></option>`).join("");
-    $("periodo").textContent = `Mercado Público · licitaciones ${MESES[0]} a ${MESES[MESES.length - 1]}`;
+    $("periodo").textContent = `Mercado Público · ${MESES[0]} a ${MESES[MESES.length - 1]}`;
     $("pie").textContent = `Fuente: descarga masiva de Mercado Público (ChileCompra) y su API. Datos al ${(meta.corte_datos || meta.corte).slice(0, 10)}. Cálculos en el navegador sobre ${num(meta.n)} licitaciones.`;
     const FILTROS = ["f-desde", "f-hasta", "f-tipo", "f-region", "f-sector", "f-org", "f-rubro1", "f-rubro2"];
     try {
@@ -1769,8 +1895,38 @@ async function iniciar() {
       estado.rmask = mascaraRubro(f);
       estado.f = f;
       try { localStorage.setItem("obs-filtros", JSON.stringify(Object.fromEntries(FILTROS.map((k) => [k, $(k).value])))); } catch (e) { /* sin almacenamiento */ }
+      pintarFiltros();
       render();
     };
+    // Chips de los filtros activos; cada uno se quita con un clic.
+    const quitar = { periodo: () => { $("f-desde").value = "0"; $("f-hasta").value = String(MESES.length - 1); },
+      "f-rubro1": () => { $("f-rubro1").value = ""; subrubros(); $("f-rubro2").value = ""; } };
+    const pintarFiltros = () => {
+      const act = [];
+      const d = Number($("f-desde").value), h = Number($("f-hasta").value);
+      if (d !== 0 || h !== MESES.length - 1) act.push(["periodo", "Periodo", `${MESES[Math.min(d, h)]} a ${MESES[Math.max(d, h)]}`]);
+      for (const [id, l] of [["f-tipo", "Tipo"], ["f-region", "Región"], ["f-sector", "Sector"], ["f-rubro1", "Rubro"], ["f-rubro2", "Subrubro"]])
+        if ($(id).value !== "") act.push([id, l, $(id).selectedOptions[0].text]);
+      if ($("f-org").value.trim()) act.push(["f-org", "Organismo", $("f-org").value.trim()]);
+      $("f-activos").innerHTML = act.length
+        ? act.map(([k, l, t]) => `<button type="button" class="activo" data-quitar="${k}" aria-label="Quitar filtro ${esc(l.toLowerCase())}: ${esc(t)}" title="${esc(t)}"><span><b>${esc(l)}</b> ${esc(t)}</span><i aria-hidden="true">×</i></button>`).join("")
+        : '<span class="sin-filtros">Todas las licitaciones del periodo</span>';
+      $("f-cuenta").hidden = !act.length;
+      $("f-cuenta").textContent = act.length;
+      $("limpiar").hidden = act.length < 2;
+      $("f-activos").querySelectorAll("[data-quitar]").forEach((b) => b.addEventListener("click", () => {
+        const k = b.dataset.quitar;
+        (quitar[k] || (() => { $(k).value = ""; }))();
+        aplicar();
+      }));
+    };
+    const abrirFiltros = (abierto) => {
+      $("f-campos").hidden = !abierto;
+      $("f-abrir").setAttribute("aria-expanded", abierto);
+      try { localStorage.setItem("obs-filtros-abiertos", abierto ? "1" : ""); } catch (e) { /* sin almacenamiento */ }
+    };
+    $("f-abrir").addEventListener("click", () => abrirFiltros($("f-campos").hidden));
+    try { if (localStorage.getItem("obs-filtros-abiertos")) abrirFiltros(true); } catch (e) { /* sin almacenamiento */ }
     $("f-rubro1").addEventListener("change", () => { subrubros(); $("f-rubro2").value = ""; aplicar(); });
     for (const id of ["f-desde", "f-hasta", "f-tipo", "f-region", "f-sector", "f-rubro2"]) $(id).addEventListener("change", aplicar);
     $("f-org").addEventListener("change", aplicar);
