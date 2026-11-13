@@ -31,8 +31,10 @@ const d = M.cargar(meta, buf("lic.bin"), buf("adj.bin"), cat);
 const casos = JSON.parse(process.argv[3]);
 const out = casos.map((f) => {
   const mk = M.mascara(d, f);
-  const r = M.resumen(d, mk), c = M.competencia(d, mk, 33), p = M.precio(d, mk);
-  const k = M.concentracion(d, mk, cat.proveedores), pr = M.proceso(d, mk, 33), a = M.alertasResumen(d, mk);
+  let nM = 0;
+  for (const m of d.c.mes) if (m >= nM) nM = m + 1;
+  const r = M.resumen(d, mk), c = M.competencia(d, mk, nM), p = M.precio(d, mk);
+  const k = M.concentracion(d, mk, cat.proveedores), pr = M.proceso(d, mk, nM), a = M.alertasResumen(d, mk);
   const pares = JSON.parse(fs.readFileSync(dir + "/pares.json"));
   const provs = {};
   for (const r of M.proveedoresRiesgo(d, mk, 3, pares).slice(0, 300)) {
@@ -126,16 +128,20 @@ def main() -> None:
     tipo_idx = {t: i for i, (t, _) in enumerate(cat["tipos"])}
     reg_idx = {r: i + 1 for i, r in enumerate(cat["regiones"])}
     top_org = obs.opciones()["organismos"].iloc[0]["c"]
+    # Último mes presente en los datos, relativo a mes0 (antes estaba fijo en 32 = 2026-09).
+    y0, m0 = (int(x) for x in meta["mes0"].split("-"))
+    fin = obs.opciones()["meses"].iloc[0]["hasta"]
+    ultimo = (fin.year * 12 + fin.month) - (y0 * 12 + m0)
     casos = [
-        (Filtros(), {"desde": 0, "hasta": 32}),
+        (Filtros(), {"desde": 0, "hasta": ultimo}),
         (
             Filtros(desde=date(2025, 1, 1), hasta=date(2025, 12, 31), tipos=["LE"]),
             {"desde": 12, "hasta": 23, "tipo": tipo_idx["LE"]},
         ),
-        (Filtros(organismos=[top_org]), {"desde": 0, "hasta": 32, "org": org_idx[top_org]}),
+        (Filtros(organismos=[top_org]), {"desde": 0, "hasta": ultimo, "org": org_idx[top_org]}),
         (
             Filtros(regiones=["Región de Valparaíso "]),
-            {"desde": 0, "hasta": 32, "region": reg_idx["Región de Valparaíso "]},
+            {"desde": 0, "hasta": ultimo, "region": reg_idx["Región de Valparaíso "]},
         ),
     ]
     js = json.loads(
